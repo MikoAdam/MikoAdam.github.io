@@ -2,7 +2,7 @@
 
 Create animated geopolitical map visualizations with a simple scripting language. Perfect for YouTube explainers, educational content, and presentations.
 
-🌍 **[Live Demo](https://mikoadam.github.io/ggmaps/)**
+🌍 **[Live Demo](https://mikoadam.github.io)**
 
 ![NATO Expansion Demo](demo.gif)
 
