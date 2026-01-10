@@ -42,7 +42,8 @@ class ScriptExecutor {
 
             case 'year': {
                 const el = document.getElementById('fixedYear');
-                el.textContent = cmd.text;
+                const textEl = el.querySelector('.fixed-year-text');
+                textEl.textContent = cmd.text;
                 el.className = 'fixed-year visible' + (cmd.highlight ? ' highlight' : '');
                 break;
             }
@@ -57,13 +58,17 @@ class ScriptExecutor {
                 if (feature) {
                     this.renderer.zoomToFeature(feature);
                     await this.delay(600);
+                    await this.waitForMapIdle();
                 }
                 break;
             }
 
             case 'fly': {
                 this.renderer.flyTo(cmd.lat, cmd.lng, cmd.zoom);
+                // Wait for fly animation to complete
                 await this.delay(1300);
+                // Wait for map tiles to load
+                await this.waitForMapIdle();
                 break;
             }
 
@@ -72,6 +77,21 @@ class ScriptExecutor {
                 break;
             }
         }
+    }
+
+    /**
+     * Wait for map to finish loading tiles
+     */
+    waitForMapIdle() {
+        return new Promise(resolve => {
+            if (!this.renderer.map.isMoving() && this.renderer.map.areTilesLoaded()) {
+                resolve();
+            } else {
+                this.renderer.map.once('idle', resolve);
+                // Timeout fallback in case idle never fires
+                setTimeout(resolve, 2000);
+            }
+        });
     }
 
     delay(ms) {

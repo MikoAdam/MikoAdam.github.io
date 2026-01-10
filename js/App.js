@@ -115,26 +115,31 @@ class App {
         const mapCanvas = this.renderer.map.getCanvas();
         const ctx = this.recordingCtx;
 
+        // Draw the map canvas
         ctx.drawImage(mapCanvas, 0, 0);
 
         // Draw country labels if visible (satellite mode)
+        // We need to get fresh projected coordinates each frame
         if (this.renderer.showLabels && this.renderer.labelMarkers.length > 0) {
             ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             
-            this.renderer.labelMarkers.forEach(marker => {
-                const lngLat = marker.getLngLat();
-                const point = this.renderer.map.project(lngLat);
-                const name = marker.getElement().textContent;
+            // Get all country features and project their centers
+            this.renderer.geoData.countries.features.forEach(f => {
+                const name = f.properties.NAME || f.properties.ADMIN;
+                const center = this.renderer.geoData.getCenter(f.geometry, name);
                 
-                // Text shadow
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-                ctx.shadowBlur = 6;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 1;
+                // Project to screen coordinates
+                const point = this.renderer.map.project(center);
                 
-                ctx.fillText(name, point.x, point.y);
+                // Only draw if on screen
+                if (point.x >= -50 && point.x <= this.recordingCanvas.width + 50 &&
+                    point.y >= -20 && point.y <= this.recordingCanvas.height + 20) {
+                    ctx.fillText(name, point.x, point.y);
+                }
             });
             
             ctx.shadowColor = 'transparent';
@@ -145,30 +150,33 @@ class App {
         const yearEl = document.getElementById('fixedYear');
         if (yearEl.classList.contains('visible')) {
             const isHighlight = yearEl.classList.contains('highlight');
-            const text = yearEl.textContent;
+            const textEl = yearEl.querySelector('.fixed-year-text');
+            const text = textEl ? textEl.textContent : '';
 
-            ctx.font = '700 32px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.font = '700 36px Georgia, Times New Roman, serif';
             ctx.textAlign = 'left';
             
-            const x = 24;
-            const y = 40;
             const textWidth = ctx.measureText(text).width;
-            const padding = 28;
-            const height = 54;
+            const paddingX = 28;
+            const paddingY = 16;
+            const x = 24;
+            const y = 50;
+            const boxWidth = textWidth + paddingX * 2;
+            const boxHeight = 36 + paddingY * 2;
 
-            // Background
-            ctx.fillStyle = isHighlight ? '#dc2626' : '#111';
-            ctx.fillRect(x, y, textWidth + padding * 2, height);
+            // SOLID background
+            ctx.fillStyle = isHighlight ? '#fbbf24' : '#0f0f14';
+            ctx.fillRect(x, y, boxWidth, boxHeight);
 
-            // Left accent bar (only if not highlight)
+            // Left accent bar (only when not highlight)
             if (!isHighlight) {
                 ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(x, y, 4, height);
+                ctx.fillRect(x, y, 4, boxHeight);
             }
 
             // Text
-            ctx.fillStyle = '#fff';
-            ctx.fillText(text, x + padding, y + 38);
+            ctx.fillStyle = isHighlight ? '#000' : '#fff';
+            ctx.fillText(text, x + paddingX, y + paddingY + 28);
         }
 
         // Draw bubbles
@@ -176,14 +184,14 @@ class App {
             const el = marker.getElement();
             if (el.classList.contains('map-bubble')) {
                 const lngLat = marker.getLngLat();
-                const point = this.renderer.map.project(lngLat);
+                const point = this.renderer.map.project([lngLat.lng, lngLat.lat]);
                 const text = el.textContent;
                 
-                ctx.font = '500 15px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.font = '400 15px Georgia, Times New Roman, serif';
                 ctx.textAlign = 'left';
                 
-                // Measure and wrap text
-                const maxWidth = 300;
+                // Text wrapping
+                const maxWidth = 280;
                 const words = text.split(' ');
                 let lines = [];
                 let currentLine = '';
@@ -199,16 +207,17 @@ class App {
                 });
                 lines.push(currentLine);
                 
-                const lineHeight = 22;
-                const padding = 20;
-                const boxWidth = Math.min(Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 2, 340);
-                const boxHeight = lines.length * lineHeight + padding * 1.5;
+                const lineHeight = 24;
+                const paddingX = 22;
+                const paddingY = 14;
+                const boxWidth = Math.min(Math.max(...lines.map(l => ctx.measureText(l).width)) + paddingX * 2 + 4, 320);
+                const boxHeight = lines.length * lineHeight + paddingY * 2;
                 
                 const boxX = point.x;
                 const boxY = point.y - boxHeight / 2;
 
-                // Background
-                ctx.fillStyle = '#111';
+                // SOLID background
+                ctx.fillStyle = '#0f0f14';
                 ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
 
                 // Left accent bar
@@ -218,7 +227,7 @@ class App {
                 // Text
                 ctx.fillStyle = '#fff';
                 lines.forEach((line, i) => {
-                    ctx.fillText(line, boxX + padding, boxY + padding + i * lineHeight);
+                    ctx.fillText(line, boxX + paddingX + 4, boxY + paddingY + 12 + i * lineHeight);
                 });
             }
         });
@@ -229,17 +238,17 @@ class App {
             ? '© NASA Blue Marble · Natural Earth'
             : '© OpenFreeMap · Natural Earth';
 
-        ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'left';
         const attrWidth = ctx.measureText(attrText).width;
         const attrPadding = 10;
         const attrX = this.recordingCanvas.width - attrWidth - attrPadding - 16;
-        const attrY = this.recordingCanvas.height - 16;
+        const attrY = this.recordingCanvas.height - 14;
 
-        ctx.fillStyle = '#111';
-        ctx.fillRect(attrX - attrPadding, attrY - 14, attrWidth + attrPadding * 2, 22);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(attrX - attrPadding, attrY - 12, attrWidth + attrPadding * 2, 20);
 
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = '#777';
         ctx.fillText(attrText, attrX, attrY);
 
         requestAnimationFrame(() => this.drawRecordingFrame());
