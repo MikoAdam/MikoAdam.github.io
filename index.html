@@ -1,15 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pillars of Creation maps - Animated Map Editor</title>
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="Create stunning animated map visualizations with simple text commands">
+    <title>Pillars of Creation Maps</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" as="style">
+    <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" as="script">
+    <link rel="prefetch" href="./data/countries.geojson">
+    <link rel="prefetch" href="./data/regions.geojson">
+    
+    <!-- DNS prefetch -->
+    <link rel="dns-prefetch" href="https://tiles.openfreemap.org">
+    <link rel="dns-prefetch" href="https://gibs-a.earthdata.nasa.gov">
+    
+    <!-- Stylesheets -->
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-    <link href="styles.css" rel="stylesheet" />
+    <link href="./css/styles.css" rel="stylesheet" />
 </head>
+
 <body>
     <header>
-        <div class="logo">🌍 Pillars of Creation maps</div>
+        <div class="logo">🌌 Pillars of Creation Maps</div>
         <div class="header-controls">
             <select id="styleSelect">
                 <option value="liberty">Liberty</option>
@@ -28,17 +44,17 @@
         </div>
     </header>
 
-    <div class="fixed-year" id="fixedYear"><span class="fixed-year-text"></span></div>
-
     <main>
         <aside class="sidebar">
             <div class="toolbar">
                 <button onclick="app.insertCommand('wait: 1s')" title="Add delay">⏱️ Wait</button>
                 <button onclick="app.insertCommand('fly: 50, 10, 4')" title="Fly to location">✈️ Fly</button>
+                <button onclick="app.insertCommand('cinematic: 50, 10, 4, 45, 60')" title="Cinematic view">🎬 Cinematic</button>
                 <button onclick="app.insertCommand('zoom: Germany')" title="Zoom to country">🔍 Zoom</button>
                 <div class="toolbar-divider"></div>
-                <button onclick="app.insertCommand('bubble: 50, 10, &quot;Text&quot;')" title="Add text bubble">💬 Bubble</button>
-                <button onclick="app.insertCommand('year: &quot;2024&quot;')" title="Add year badge">📅 Year</button>
+                <button onclick="app.insertCommand('bubble: 50, 10, &quot;Text&quot;, blue')" title="Add text bubble">💬 Bubble</button>
+                <button onclick="app.insertCommand('year: 50, 10, &quot;2024&quot;, highlight')" title="Add year badge">📅 Year</button>
+                <button onclick="app.insertCommand('arrow: 50, 10, &quot;Label&quot;, right')" title="Add arrow label">➡️ Arrow</button>
                 <div class="toolbar-divider"></div>
                 <button onclick="app.insertCommand('remove: last')" title="Remove last label">🗑️</button>
             </div>
@@ -53,12 +69,12 @@
                 <textarea class="editor" id="editor" placeholder="# Right-click on map to add countries
 # Use toolbar to insert commands
 
-germany: blue
-france: green
+germany: blue, fade
+france: green, radial
 
-bubble: 52, 13, &quot;Berlin&quot;
+bubble: 52, 13, &quot;Berlin&quot;, blue
 wait: 2s
-zoom: Germany"></textarea>
+cinematic: 52, 13, 6, 45, 60"></textarea>
             </div>
 
             <div class="tab-content" id="tab-examples">
@@ -68,33 +84,39 @@ zoom: Germany"></textarea>
             <div class="tab-content" id="tab-help">
                 <div class="help-content">
                     <h3>🎨 Coloring Countries</h3>
-                    <p><code>country name: color</code></p>
-                    <p>Example: <code>germany: blue</code></p>
+                    <p><code>country: color, animation</code></p>
+                    <p>Example: <code>germany: blue, radial</code></p>
 
                     <h3>🗺️ Coloring Regions</h3>
-                    <p><code>region: Name, Country, color</code></p>
-                    <p>Example: <code>region: Bavaria, Germany, orange</code></p>
+                    <p><code>region: Name, Country, color, animation</code></p>
+                    <p>Example: <code>region: Bavaria, Germany, orange, sweep</code></p>
+
+                    <h3>🔗 Draw Lines</h3>
+                    <p><code>line: Country1, Country2, color</code></p>
+                    <p>Example: <code>line: Germany, France, blue</code></p>
 
                     <h3>💬 Text Bubble</h3>
-                    <p><code>bubble: lat, lng, "text"</code></p>
+                    <p><code>bubble: lat, lng, "text", color</code></p>
 
                     <h3>📅 Year Badge</h3>
-                    <p><code>year: "2024"</code></p>
-                    <p><code>year: "2024", highlight</code></p>
+                    <p><code>year: lat, lng, "2024", highlight</code></p>
 
-                    <h3>🎬 Animation</h3>
-                    <p><code>wait: 2s</code> - pause for 2 seconds</p>
-                    <p><code>fly: lat, lng, zoom</code> - fly to location</p>
-                    <p><code>zoom: Germany</code> - zoom to country</p>
-                    <p><code>remove: last</code> - remove last label</p>
+                    <h3>➡️ Arrow Label</h3>
+                    <p><code>arrow: lat, lng, "text", direction, color</code></p>
+
+                    <h3>🎬 Camera</h3>
+                    <p><code>fly: lat, lng, zoom</code></p>
+                    <p><code>cinematic: lat, lng, zoom, pitch, bearing</code></p>
+
+                    <h3>⏱️ Controls</h3>
+                    <p><code>wait: 2s</code> - pause</p>
+                    <p><code>zoom: Germany</code> - auto-fit</p>
+                    <p><code>remove: last</code> - remove label</p>
 
                     <h3>💡 Tips</h3>
-                    <p>• Right-click map to add countries/regions</p>
-                    <p>• Use toolbar buttons to insert commands</p>
-                    <p>• Switch to Satellite for different look</p>
-
-                    <h3>🎨 Available Colors</h3>
-                    <p>red, orange, yellow, gold, green, blue, cyan, purple, pink, magenta, white, maroon, coral, salmon, navy, lime</p>
+                    <p>• Right-click for context menu</p>
+                    <p>• Animations: fade, radial, sweep</p>
+                    <p>• Labels scale with zoom</p>
                 </div>
             </div>
 
@@ -104,7 +126,7 @@ zoom: Germany"></textarea>
         <div class="map-container">
             <div id="map"></div>
             <div class="map-status" id="status">Loading...</div>
-            <div class="map-attribution" id="attribution">
+            <div class="map-attribution">
                 <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ·
                 <a href="https://naturalearthdata.com" target="_blank">Natural Earth</a>
             </div>
@@ -117,35 +139,41 @@ zoom: Germany"></textarea>
         <div class="context-menu-section">Choose color</div>
         <div class="color-palette" id="colorPalette"></div>
         <div class="context-menu-divider"></div>
-        <div class="context-menu-item" onclick="app.menu.addRegion()">
-            <span class="icon">🎨</span> Color this region
+        <div class="context-menu-item" data-action="addCountry">
+            <span class="icon">🎨</span> Color this country
         </div>
-        <div class="context-menu-item" onclick="app.menu.addBubble()">
-            <span class="icon">💬</span> Add text bubble here
+        <div class="context-menu-item" data-action="addRegion">
+            <span class="icon">🗺️</span> Color this region
         </div>
-        <div class="context-menu-item" onclick="app.menu.addFly()">
-            <span class="icon">✈️</span> Fly to this location
+        <div class="context-menu-item" data-action="addLine">
+            <span class="icon">🔗</span> Draw line from here
+        </div>
+        <div class="context-menu-item" data-action="addBubble">
+            <span class="icon">💬</span> Add text bubble
+        </div>
+        <div class="context-menu-item" data-action="addCinematic">
+            <span class="icon">🎬</span> Cinematic camera
         </div>
         <div class="context-menu-divider"></div>
-        <div class="context-menu-item" onclick="app.menu.close()">
+        <div class="context-menu-item" data-action="close">
             <span class="icon">✕</span> Cancel
         </div>
     </div>
 
-    <!-- Dependencies -->
+    <!-- MapLibre -->
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    
-    <!-- App Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/examples.js"></script>
-    <script src="js/GeoData.js"></script>
-    <script src="js/MapRenderer.js"></script>
-    <script src="js/LabelFactory.js"></script>
-    <script src="js/ScriptParser.js"></script>
-    <script src="js/ScriptExecutor.js"></script>
-    <script src="js/Editor.js"></script>
-    <script src="js/ContextMenu.js"></script>
-    <script src="js/App.js"></script>
-    <script src="js/main.js"></script>
+
+    <!-- App modules (order matters!) -->
+    <script src="./js/config.js"></script>
+    <script src="./js/geodata.js"></script>
+    <script src="./js/renderer.js"></script>
+    <script src="./js/labels.js"></script>
+    <script src="./js/parser.js"></script>
+    <script src="./js/executor.js"></script>
+    <script src="./js/editor.js"></script>
+    <script src="./js/context-menu.js"></script>
+    <script src="./js/app.js"></script>
+    <script src="./js/main.js"></script>
 </body>
+
 </html>

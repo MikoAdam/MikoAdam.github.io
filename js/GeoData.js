@@ -1,5 +1,6 @@
 /**
- * GeoData - Loads and queries country/region boundary data
+ * Pillars of Creation Maps - GeoData
+ * Handles loading, caching, and querying geographic data
  */
 
 class GeoData {
@@ -7,6 +8,7 @@ class GeoData {
         this.countries = null;
         this.regions = null;
 
+        // Fixed centers for better visual positioning
         this.fixedCenters = {
             'france': [2.5, 46.6],
             'united kingdom': [-2.5, 54.5],
@@ -21,21 +23,95 @@ class GeoData {
         };
     }
 
+    /**
+     * Load geographic data with smart caching and fallback
+     */
     async load() {
-        const [countriesRes, regionsRes] = await Promise.all([
-            fetch(CONFIG.data.countries),
-            fetch(CONFIG.data.regions)
-        ]);
-        this.countries = await countriesRes.json();
-        this.regions = await regionsRes.json();
+        const cacheKey = 'poc-maps-geodata-v2';
+        
+        // Try localStorage cache first
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                this.countries = data.countries;
+                this.regions = data.regions;
+                this.fixDisputedTerritories();
+                console.log('GeoData: Loaded from cache ⚡');
+                return;
+            } catch (e) {
+                console.warn('Cache corrupted, reloading...');
+                localStorage.removeItem(cacheKey);
+            }
+        }
 
-        this.fixDisputedTerritories();
+        // Load from files with fallback
+        const timeout = (ms) => new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), ms)
+        );
+
+        try {
+            console.log('GeoData: Loading from files...');
+            
+            let countriesRes, regionsRes;
+            
+            // Try local files first
+            try {
+                [countriesRes, regionsRes] = await Promise.race([
+                    Promise.all([
+                        fetch(CONFIG.data.countries),
+                        fetch(CONFIG.data.regions)
+                    ]),
+                    timeout(5000)
+                ]);
+                
+                if (!countriesRes.ok || !regionsRes.ok) {
+                    throw new Error('Local files not found');
+                }
+            } catch (localError) {
+                console.log('GeoData: Using GitHub fallback (slower)...');
+                // Fallback to GitHub
+                [countriesRes, regionsRes] = await Promise.race([
+                    Promise.all([
+                        fetch(CONFIG.data.countriesFallback),
+                        fetch(CONFIG.data.regionsFallback)
+                    ]),
+                    timeout(30000)
+                ]);
+            }
+
+            this.countries = await countriesRes.json();
+            this.regions = await regionsRes.json();
+            
+            this.fixDisputedTerritories();
+
+            // Cache for next time (if under 5MB)
+            try {
+                const cacheData = JSON.stringify({
+                    countries: this.countries,
+                    regions: this.regions
+                });
+                
+                if (cacheData.length < 5 * 1024 * 1024) {
+                    localStorage.setItem(cacheKey, cacheData);
+                    console.log('GeoData: Cached for next visit 💾');
+                }
+            } catch (e) {
+                console.warn('Could not cache:', e.message);
+            }
+        } catch (err) {
+            console.error('Failed to load geodata:', err);
+            throw err;
+        }
     }
 
+    /**
+     * Fix disputed territories (Crimea → Ukraine)
+     */
     fixDisputedTerritories() {
+        // Reassign Crimea regions to Ukraine
         this.regions.features.forEach(f => {
             const name = (f.properties.name || f.properties.NAME || '').toLowerCase();
-
             if (name.includes('crimea') || name.includes('krym') || name.includes('sevastopol')) {
                 f.properties.admin = 'Ukraine';
                 f.properties.ADMIN = 'Ukraine';
@@ -44,6 +120,7 @@ class GeoData {
             }
         });
 
+        // Merge Crimea geometry into Ukraine
         const ukraine = this.countries.features.find(f =>
             (f.properties.NAME || '').toLowerCase() === 'ukraine'
         );
@@ -54,14 +131,15 @@ class GeoData {
         });
 
         if (ukraine && crimeaRegions.length > 0) {
-            crimeaRegions.forEach(crimea => {
-                this.mergeGeometry(ukraine, crimea);
-            });
+            crimeaRegions.forEach(crimea => this.mergeGeometry(ukraine, crimea));
         }
 
-        console.log('GeoData: Fixed disputed territories (Crimea → Ukraine)');
+        console.log('GeoData: Fixed Crimea → Ukraine');
     }
 
+    /**
+     * Merge geometry from source into target
+     */
     mergeGeometry(target, source) {
         if (source.geometry.type === 'Polygon') {
             if (target.geometry.type === 'Polygon') {
@@ -84,51 +162,61 @@ class GeoData {
         }
     }
 
+    /**
+     * Normalize string for comparison
+     */
     normalize(str) {
         return (str || '').toLowerCase().replace(/[-_]/g, ' ').replace(/^the\s+/, '').trim();
     }
 
+    /**
+     * Find country by name with fuzzy matching
+     */
     findCountry(name) {
         const normalized = this.normalize(name);
         const search = CONFIG.aliases[normalized] || normalized;
 
-        let result = this.countries.features.find(f => {
-            return this.normalize(f.properties.NAME) === search;
-        });
+        // Try exact match on NAME
+        let result = this.countries.features.find(f => 
+            this.normalize(f.properties.NAME) === search
+        );
 
+        // Try exact match on ADMIN
         if (!result) {
-            result = this.countries.features.find(f => {
-                return this.normalize(f.properties.ADMIN) === search;
-            });
+            result = this.countries.features.find(f => 
+                this.normalize(f.properties.ADMIN) === search
+            );
         }
 
+        // Try NAME_LONG
         if (!result) {
-            result = this.countries.features.find(f => {
-                return f.properties.NAME_LONG && this.normalize(f.properties.NAME_LONG) === search;
-            });
+            result = this.countries.features.find(f => 
+                f.properties.NAME_LONG && this.normalize(f.properties.NAME_LONG) === search
+            );
         }
 
+        // Fuzzy match (starts with)
         if (!result) {
             result = this.countries.features.find(f => {
                 const n = this.normalize(f.properties.NAME);
                 const a = this.normalize(f.properties.ADMIN);
                 return n.startsWith(search) || search.startsWith(n) ||
-                    a.startsWith(search) || search.startsWith(a);
+                       a.startsWith(search) || search.startsWith(a);
             });
-        }
-
-        if (!result) {
-            console.warn(`Country not found: "${name}"`);
         }
 
         return result;
     }
 
+    /**
+     * Find region/subdivision by name and parent country
+     */
     findRegion(name, country) {
         const n = this.normalize(name);
         const c = this.normalize(country);
         const ca = CONFIG.aliases[c] || c;
 
+        // Exact match
         let result = this.regions.features.find(f => {
             const props = f.properties;
             const names = [props.name, props.NAME, props.name_en, props.woe_name]
@@ -144,6 +232,7 @@ class GeoData {
             return nameMatch && parentMatch;
         });
 
+        // Fuzzy match
         if (!result) {
             result = this.regions.features.find(f => {
                 const props = f.properties;
@@ -168,6 +257,9 @@ class GeoData {
         return result;
     }
 
+    /**
+     * Get bounding box of geometry
+     */
     getBounds(geometry) {
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
@@ -186,6 +278,9 @@ class GeoData {
         return [[minX, minY], [maxX, maxY]];
     }
 
+    /**
+     * Get center point of geometry (with fixed overrides)
+     */
     getCenter(geometry, countryName = null) {
         if (countryName) {
             const key = countryName.toLowerCase();

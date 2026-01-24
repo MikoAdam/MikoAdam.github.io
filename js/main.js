@@ -1,29 +1,16 @@
 /**
- * GGMaps - Animated Map Editor
- * 
- * ════════════════════════════════════════════════════════════════════════════
- * LICENSE: 100% FREE FOR COMMERCIAL USE
- * ════════════════════════════════════════════════════════════════════════════
- * - OpenFreeMap (MIT) - vector map tiles
- * - NASA GIBS Blue Marble (Public Domain) - satellite imagery  
- * - Natural Earth (Public Domain) - country/region boundaries
- * - MapLibre GL JS (BSD) - map rendering
- * 
- * You may use, modify, and redistribute freely.
- * 
- * ════════════════════════════════════════════════════════════════════════════
- * DISPUTED TERRITORIES
- * ════════════════════════════════════════════════════════════════════════════
- * ✓ Crimea - reassigned to Ukraine (fixed from source data)
- * Other disputed areas show de facto control per Natural Earth.
- * ════════════════════════════════════════════════════════════════════════════
+ * Pillars of Creation Maps - Initialization
+ * Entry point - starts the application
  */
 
+// Create global app instance
 const app = new App();
 
+// Initialize when DOM is ready
 app.init().catch(err => {
-    console.error('Failed to initialize GGMaps:', err);
+    console.error('Failed to initialize Pillars of Creation Maps:', err);
     document.getElementById('status').textContent = 'Error: ' + err.message;
 });
 
+// Expose app globally for inline onclick handlers
 window.app = app;
