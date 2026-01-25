@@ -1,6 +1,5 @@
 /**
  * Pillars of Creation Maps - Main Application
- * Orchestrates all components and handles UI events
  */
 
 class App {
@@ -18,65 +17,56 @@ class App {
         this.recordingCtx = null;
     }
 
-    /**
-     * Initialize the application
-     */
     async init() {
         this.setStatus('Loading map...');
 
         try {
-            // Load geographic data
             await this.geoData.load();
 
-            // Initialize renderer
             this.renderer = new MapRenderer('map', this.geoData);
             await this.renderer.init();
 
-            // Initialize executor
             this.executor = new ScriptExecutor(this.renderer, this.geoData);
 
-            // Initialize context menu
             this.menu = new ContextMenu(this.editor, this.renderer);
 
-            // Setup event handlers
             this.setupEventHandlers();
 
-            // Load examples
             this.loadExamples();
 
-            this.setStatus('Ready - Right-click map for options');
+            // Force camera to desired position after everything is loaded
+            this.renderer.map.jumpTo({
+                center: [20, 48],
+                zoom: 3,
+                pitch: 0,
+                bearing: 0
+            });
+
+            this.setStatus('Ready');
         } catch (err) {
             console.error('Initialization failed:', err);
             this.setStatus('Error: ' + err.message);
         }
     }
 
-    /**
-     * Setup UI event handlers
-     */
     setupEventHandlers() {
-        // Style selector
         document.getElementById('styleSelect').addEventListener('change', (e) => {
             this.renderer.setStyle(e.target.value);
             this.updateSatelliteControls(e.target.value === 'satellite');
         });
 
-        // Border toggle
         document.getElementById('showBorders').addEventListener('change', (e) => {
             this.renderer.toggleBorders(e.target.checked);
         });
 
-        // Labels toggle
         document.getElementById('showLabels').addEventListener('change', (e) => {
             this.renderer.toggleLabels(e.target.checked);
         });
 
-        // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
         });
 
-        // Right-click context menu
         this.renderer.on('contextmenu', (e) => {
             e.preventDefault();
             const feature = this.renderer.queryFeatures(e.point);
@@ -84,18 +74,12 @@ class App {
         });
     }
 
-    /**
-     * Show/hide satellite-only controls
-     */
     updateSatelliteControls(isSatellite) {
         document.querySelectorAll('.satellite-only').forEach(el => {
             el.style.display = isSatellite ? 'flex' : 'none';
         });
     }
 
-    /**
-     * Switch active tab
-     */
     switchTab(tabName) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -104,9 +88,6 @@ class App {
         document.getElementById('tab-' + tabName).classList.add('active');
     }
 
-    /**
-     * Load examples into sidebar
-     */
     loadExamples() {
         const container = document.getElementById('examplesList');
         container.innerHTML = Object.entries(EXAMPLES).map(([key, example]) => `
@@ -121,17 +102,11 @@ class App {
         });
     }
 
-    /**
-     * Load an example into editor
-     */
     loadExample(key) {
         this.editor.setValue(EXAMPLES[key].script);
         this.switchTab('editor');
     }
 
-    /**
-     * Run the animation script
-     */
     async run() {
         const script = this.editor.getValue();
         const commands = this.parser.parse(script);
@@ -142,67 +117,26 @@ class App {
         }
 
         this.renderer.clearAll();
-        
-        // FORCE all tiles to load at all zoom levels
-        const zoomLevels = [2, 3, 4, 5, 6, 7, 8];
-        
-        for (let i = 0; i < zoomLevels.length; i++) {
-            const zoom = zoomLevels[i];
-            this.setStatus(`Preloading tiles (${i + 1}/${zoomLevels.length})...`);
-            
-            this.renderer.map.jumpTo({ 
-                center: [10, 50], 
-                zoom: zoom,
-                pitch: 0,
-                bearing: 0
-            });
-            
-            // Wait for initial render
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Wait until tiles are loaded
-            let attempts = 0;
-            while (!this.renderer.map.areTilesLoaded() && attempts < 20) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-                attempts++;
-            }
-            
-            // Wait for idle state
-            await new Promise(resolve => this.renderer.map.once('idle', resolve));
-            
-            // Extra buffer
-            await new Promise(resolve => setTimeout(resolve, 200));
-        }
-
         this.setStatus('Running animation...');
 
         try {
             await this.executor.execute(commands);
-            this.setStatus('Done ✨');
+            this.setStatus('Done');
         } catch (err) {
             console.error('Execution error:', err);
             this.setStatus('Error: ' + err.message);
         }
     }
 
-    /**
-     * Clear all map content
-     */
     clearAll() {
         this.renderer.clearAll();
         this.setStatus('Cleared');
     }
 
-    /**
-     * Insert command into editor
-     */
     insertCommand(cmd) {
         this.editor.insert(cmd);
     }
 
-    /**
-     * Toggle fullscreen mode
-     */
     toggleFullscreen() {
         const mapContainer = document.querySelector('.map-container');
         if (document.fullscreenElement) {
@@ -212,22 +146,16 @@ class App {
         }
     }
 
-    /**
-     * Take screenshot of current map view
-     */
     takeScreenshot() {
         const mapCanvas = this.renderer.map.getCanvas();
         
-        // Create a temporary canvas to add attribution
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = mapCanvas.width;
         tempCanvas.height = mapCanvas.height;
         const ctx = tempCanvas.getContext('2d');
         
-        // Draw map
         ctx.drawImage(mapCanvas, 0, 0);
         
-        // Add attribution
         const isSatellite = document.getElementById('styleSelect').value === 'satellite';
         const text = isSatellite
             ? '© NASA GIBS · Natural Earth'
@@ -247,7 +175,6 @@ class App {
         ctx.fillStyle = '#aaa';
         ctx.fillText(text, x, y);
         
-        // Download
         tempCanvas.toBlob(blob => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -255,16 +182,12 @@ class App {
             a.download = `pillars-of-creation-${Date.now()}.png`;
             a.click();
             URL.revokeObjectURL(url);
-            this.setStatus('Screenshot saved! 📸');
+            this.setStatus('Screenshot saved!');
             
-            // Reset status after 2s
-            setTimeout(() => this.setStatus('Ready - Right-click map for options'), 2000);
+            setTimeout(() => this.setStatus('Ready'), 2000);
         }, 'image/png');
     }
 
-    /**
-     * Start video recording
-     */
     startVideoRecording() {
         const mapCanvas = this.renderer.map.getCanvas();
 
@@ -299,12 +222,9 @@ class App {
         this.mediaRecorder.start();
         document.getElementById('recordBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'inline-block';
-        this.setStatus('⏺ Recording...');
+        this.setStatus('Recording...');
     }
 
-    /**
-     * Draw frame for video recording (with attribution)
-     */
     drawRecordingFrame() {
         if (!this.isRecording) return;
 
@@ -313,7 +233,6 @@ class App {
 
         ctx.drawImage(mapCanvas, 0, 0);
 
-        // Add attribution
         const isSatellite = document.getElementById('styleSelect').value === 'satellite';
         const text = isSatellite
             ? '© NASA GIBS · Natural Earth'
@@ -336,9 +255,6 @@ class App {
         requestAnimationFrame(() => this.drawRecordingFrame());
     }
 
-    /**
-     * Stop video recording
-     */
     stopVideoRecording() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
@@ -348,9 +264,6 @@ class App {
         }
     }
 
-    /**
-     * Set status message
-     */
     setStatus(message) {
         document.getElementById('status').textContent = message;
     }

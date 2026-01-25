@@ -16,7 +16,8 @@ class MapRenderer {
         this.showBorders = false;
         this.showLabels = false;
         this.lineStartCountry = null;
-        this.bubblePositions = []; // Track bubble positions to prevent overlap
+        this.bubblePositions = [];
+        this.attackArrows = []; // Track attack arrows separately
     }
 
     /**
@@ -41,11 +42,23 @@ class MapRenderer {
      * Initialize map
      */
     async init() {
+        // Fetch the style and ensure no center/zoom is set
+        let style;
+        try {
+            const response = await fetch(CONFIG.styles.liberty);
+            style = await response.json();
+            // Remove any center/zoom from style
+            delete style.center;
+            delete style.zoom;
+        } catch (e) {
+            style = CONFIG.styles.liberty;
+        }
+
         this.map = new maplibregl.Map({
             container: this.containerId,
-            style: CONFIG.styles.liberty,
-            center: [10, 50],
-            zoom: 4,
+            style: style,
+            center: [20, 48],
+            zoom: 3,
             pitch: 0,
             bearing: 0,
             attributionControl: false,
@@ -53,8 +66,6 @@ class MapRenderer {
         });
 
         this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-        // Update label sizes dynamically on zoom
         this.map.on('zoom', () => this.updateLabelSizes());
 
         return new Promise(resolve => {
@@ -112,9 +123,7 @@ class MapRenderer {
         this.map.once('styledata', () => {
             this.setupHoverLayers();
             
-            // ALWAYS hide clutter after style loads
             if (styleKey !== 'satellite') {
-                // Wait a moment for all layers to load
                 setTimeout(() => {
                     this.hideClutter();
                 }, 100);
@@ -146,6 +155,10 @@ class MapRenderer {
     setupHoverLayers() {
         if (!this.geoData.countries) return;
 
+        // Store current view
+        const currentCenter = this.map.getCenter();
+        const currentZoom = this.map.getZoom();
+
         if (!this.map.getSource('hover-countries')) {
             this.map.addSource('hover-countries', { 
                 type: 'geojson', 
@@ -171,6 +184,9 @@ class MapRenderer {
                 paint: { 'fill-opacity': 0 } 
             });
         }
+
+        // Restore view after adding sources (prevent auto-zoom)
+        this.map.jumpTo({ center: currentCenter, zoom: currentZoom });
 
         // Hover popup
         const popup = new maplibregl.Popup({ 
@@ -260,12 +276,68 @@ class MapRenderer {
     }
 
     /**
-     * Draw a GeoJSON feature with color and SPECTACULAR animation
+     * Create diagonal stripe pattern for disputed territories
+     */
+    createStripePattern(patternId, color) {
+        // This is a placeholder - MapLibre uses sprites for patterns
+        // The visual effect is achieved through multiple line layers instead
+    }
+
+    /**
+     * Draw a GeoJSON feature with color and animation
      */
     drawFeature(feature, color, animation = 'none') {
         const id = 'layer-' + (++this.layerCounter);
 
         this.map.addSource(id, { type: 'geojson', data: feature });
+        
+        // Check if this is a striped/disputed pattern
+        if (animation === 'striped' || animation === 'disputed' || animation === 'occupied') {
+            // Create diagonal stripe pattern
+            const patternId = 'stripe-' + id;
+            this.createStripePattern(patternId, color);
+            
+            // Semi-transparent fill as base
+            this.map.addLayer({
+                id: id + '-fill',
+                type: 'fill',
+                source: id,
+                paint: { 
+                    'fill-color': color, 
+                    'fill-opacity': 0.25
+                }
+            });
+            
+            // Dashed border to indicate disputed
+            this.map.addLayer({
+                id: id + '-line',
+                type: 'line',
+                source: id,
+                paint: { 
+                    'line-color': color, 
+                    'line-width': 3,
+                    'line-opacity': 1,
+                    'line-dasharray': [6, 4]
+                }
+            });
+            
+            // Add a second dashed line slightly offset for stripe effect
+            this.map.addLayer({
+                id: id + '-stripes',
+                type: 'line',
+                source: id,
+                paint: { 
+                    'line-color': color, 
+                    'line-width': 1.5,
+                    'line-opacity': 0.7,
+                    'line-dasharray': [2, 6],
+                    'line-offset': 5
+                }
+            });
+            
+            this.layers.push(id, id + '-fill', id + '-line', id + '-stripes');
+            return;
+        }
         
         // Fill layer
         this.map.addLayer({
@@ -278,7 +350,7 @@ class MapRenderer {
             }
         });
 
-        // Thick glowing border
+        // Border
         this.map.addLayer({
             id: id + '-line',
             type: 'line',
@@ -291,20 +363,17 @@ class MapRenderer {
             }
         });
 
-        // SPECTACULAR ANIMATIONS - SLOW AND DRAMATIC
+        // Animations
         if (animation === 'pulse') {
-            // DRAMATIC PULSE: 2.5 seconds, bright flash
             let step = 0;
             const totalSteps = 80;
             const interval = setInterval(() => {
                 step++;
                 const progress = step / totalSteps;
-                
-                // Ease-out cubic for smooth deceleration
                 const eased = 1 - Math.pow(1 - progress, 3);
                 
                 const opacity = eased * 0.7;
-                const lineWidth = 6 - (eased * 2); // 6 -> 4
+                const lineWidth = 6 - (eased * 2);
                 const lineOpacity = Math.min(eased * 1.2, 1);
                 
                 this.map.setPaintProperty(id + '-fill', 'fill-opacity', opacity);
@@ -320,7 +389,6 @@ class MapRenderer {
             }, 30);
             
         } else if (animation === 'fade') {
-            // SLOW FADE: 2 seconds
             let step = 0;
             const totalSteps = 65;
             const interval = setInterval(() => {
@@ -338,20 +406,17 @@ class MapRenderer {
             }, 30);
             
         } else if (animation === 'radial') {
-            // RADIAL EXPAND: 2.5 seconds with bounce
             let step = 0;
             const totalSteps = 80;
             const interval = setInterval(() => {
                 step++;
                 const progress = step / totalSteps;
-                
-                // Bounce easing
                 const eased = progress < 0.5
                     ? 4 * progress * progress * progress
                     : 1 - Math.pow(-2 * progress + 2, 3) / 2;
                 
                 const opacity = eased * 0.7;
-                const lineWidth = 8 - (eased * 4); // 8 -> 4 (thick border shrinks)
+                const lineWidth = 8 - (eased * 4);
                 const lineOpacity = Math.min(eased * 1.5, 1);
                 
                 this.map.setPaintProperty(id + '-fill', 'fill-opacity', opacity);
@@ -366,11 +431,9 @@ class MapRenderer {
             }, 30);
             
         } else if (animation === 'sweep') {
-            // BORDER SWEEP: 2.5 seconds, animated thick border
             let step = 0;
             const totalSteps = 80;
             
-            // Start with just a thick glowing border
             this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0);
             this.map.setPaintProperty(id + '-line', 'line-width', 8);
             this.map.setPaintProperty(id + '-line', 'line-opacity', 1);
@@ -379,8 +442,8 @@ class MapRenderer {
                 step++;
                 const progress = step / totalSteps;
                 
-                const fillOpacity = Math.max(0, (progress - 0.3) / 0.7) * 0.7; // Fill starts at 30%
-                const lineWidth = 8 - (progress * 4); // 8 -> 4
+                const fillOpacity = Math.max(0, (progress - 0.3) / 0.7) * 0.7;
+                const lineWidth = 8 - (progress * 4);
                 
                 this.map.setPaintProperty(id + '-fill', 'fill-opacity', fillOpacity);
                 this.map.setPaintProperty(id + '-line', 'line-width', lineWidth);
@@ -393,7 +456,7 @@ class MapRenderer {
             }, 30);
             
         } else {
-            // Instant - but still with a brief flash
+            // Instant
             setTimeout(() => {
                 this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0.7);
                 this.map.setPaintProperty(id + '-line', 'line-width', 4);
@@ -405,7 +468,7 @@ class MapRenderer {
     }
 
     /**
-     * Draw line between two countries (simple solid line)
+     * Draw line between two countries
      */
     drawLine(fromFeature, toFeature, color) {
         const id = 'line-' + (++this.layerCounter);
@@ -436,7 +499,7 @@ class MapRenderer {
     }
 
     /**
-     * Draw military-style attack arrow (thick, animated, DRAMATIC)
+     * Draw military-style attack arrow (DOM-based, with proper cleanup)
      */
     drawAttackArrow(fromFeature, toFeature, color) {
         const fromCenter = this.geoData.getCenter(fromFeature.geometry, fromFeature.properties.NAME);
@@ -445,7 +508,7 @@ class MapRenderer {
         // Create arrow container
         const arrowEl = document.createElement('div');
         arrowEl.className = 'map-attack-arrow';
-        arrowEl.style.color = color;
+        arrowEl.style.color = CONFIG.colors[color] || color || '#ef4444';
 
         // Calculate distance and angle
         const fromPixel = this.map.project(fromCenter);
@@ -473,6 +536,8 @@ class MapRenderer {
 
         // Update position on map move/zoom
         const updatePosition = () => {
+            if (!arrowEl.parentNode) return; // Check if still in DOM
+            
             const newFromPixel = this.map.project(fromCenter);
             const newToPixel = this.map.project(toCenter);
             const newDx = newToPixel.x - newFromPixel.x;
@@ -483,52 +548,96 @@ class MapRenderer {
             arrowEl.style.left = newFromPixel.x + 'px';
             arrowEl.style.top = newFromPixel.y + 'px';
             arrowEl.style.transform = `rotate(${newAngle}deg)`;
-            arrowEl.querySelector('.map-attack-arrow-line').style.width = newDistance + 'px';
+            
+            const lineEl = arrowEl.querySelector('.map-attack-arrow-line');
+            if (lineEl) lineEl.style.width = newDistance + 'px';
         };
 
         this.map.on('move', updatePosition);
         this.map.on('zoom', updatePosition);
 
-        // Store for cleanup
-        this.markers.push({ 
+        // Store for cleanup with proper removal function
+        const arrowData = { 
             element: arrowEl, 
+            updatePosition,
             remove: () => {
-                arrowEl.remove();
+                if (arrowEl.parentNode) {
+                    arrowEl.remove();
+                }
                 this.map.off('move', updatePosition);
                 this.map.off('zoom', updatePosition);
             }
-        });
+        };
+        
+        this.attackArrows.push(arrowData);
     }
 
     /**
-     * Add a marker to the map with smart positioning to avoid overlaps
+     * Clear all attack arrows
+     */
+    clearAttackArrows() {
+        this.attackArrows.forEach(arrow => arrow.remove());
+        this.attackArrows = [];
+    }
+
+    /**
+     * Set the fixed year overlay in upper left corner
+     */
+    setYearOverlay(text, highlight = false) {
+        const overlay = document.getElementById('yearOverlay');
+        if (overlay) {
+            overlay.textContent = text;
+            overlay.classList.add('visible');
+            if (highlight) {
+                overlay.classList.add('highlight');
+            } else {
+                overlay.classList.remove('highlight');
+            }
+        }
+    }
+
+    /**
+     * Hide the year overlay
+     */
+    hideYearOverlay() {
+        const overlay = document.getElementById('yearOverlay');
+        if (overlay) {
+            overlay.classList.remove('visible');
+            overlay.classList.remove('highlight');
+        }
+    }
+
+    /**
+     * Add a marker to the map
      */
     addMarker(element, lngLat, anchor = 'center') {
-        // For bubbles, check for overlaps and adjust position
+        // Validate coordinates
+        if (isNaN(lngLat[0]) || isNaN(lngLat[1])) {
+            console.error('Invalid coordinates for marker:', lngLat);
+            return null;
+        }
+        
+        // For bubbles, check for overlaps
         if (element.classList.contains('map-bubble')) {
             const pixel = this.map.project(lngLat);
-            const bubbleWidth = 400; // max-width from CSS
-            const bubbleHeight = 80; // approximate height
+            const bubbleWidth = 400;
+            const bubbleHeight = 80;
             
-            // Check for overlaps with existing bubbles
             let offsetY = 0;
             for (const pos of this.bubblePositions) {
                 const dx = Math.abs(pixel.x - pos.x);
                 const dy = Math.abs(pixel.y + offsetY - pos.y);
                 
                 if (dx < bubbleWidth / 2 && dy < bubbleHeight) {
-                    // Overlap detected, shift down
                     offsetY += bubbleHeight + 10;
                 }
             }
             
-            // Adjust position if there was overlap
             if (offsetY > 0) {
                 const newLatLng = this.map.unproject([pixel.x, pixel.y + offsetY]);
                 lngLat = [newLatLng.lng, newLatLng.lat];
             }
             
-            // Store this bubble's position
             const finalPixel = this.map.project(lngLat);
             this.bubblePositions.push({ x: finalPixel.x, y: finalPixel.y });
         }
@@ -546,7 +655,6 @@ class MapRenderer {
      */
     removeLastMarker() {
         if (this.lastMarker) {
-            // If it was a bubble, remove from positions tracking
             const element = this.lastMarker.getElement();
             if (element && element.classList.contains('map-bubble')) {
                 this.bubblePositions.pop();
@@ -562,22 +670,33 @@ class MapRenderer {
      * Clear all drawn layers and markers
      */
     clearAll() {
+        // Clear map layers
         this.layers.forEach(id => {
             if (this.map.getLayer(id)) this.map.removeLayer(id);
         });
 
         this.layers.forEach(id => {
-            if (!id.endsWith('-fill') && !id.endsWith('-line')) {
+            if (!id.endsWith('-fill') && !id.endsWith('-line') && !id.endsWith('-stripes')) {
                 if (this.map.getSource(id)) this.map.removeSource(id);
             }
         });
 
         this.layers = [];
+        
+        // Clear markers
         this.markers.forEach(m => m.remove());
         this.markers = [];
         this.lastMarker = null;
+        
+        // Clear attack arrows properly
+        this.attackArrows.forEach(arrow => arrow.remove());
+        this.attackArrows = [];
+        
+        // Hide year overlay
+        this.hideYearOverlay();
+        
         this.lineStartCountry = null;
-        this.bubblePositions = []; // Clear bubble position tracking
+        this.bubblePositions = [];
     }
 
     /**
@@ -594,13 +713,13 @@ class MapRenderer {
     }
 
     /**
-     * Cinematic camera with 3D tilt and rotation
+     * Cinematic camera with 3D tilt and rotation (capped at reasonable values)
      */
     cinematicFlyTo(lat, lng, zoom, pitch = 45, bearing = 0) {
         this.map.flyTo({ 
             center: [lng, lat], 
             zoom, 
-            pitch: Math.min(45, Math.max(0, pitch)), // Max 45° tilt
+            pitch: Math.min(45, Math.max(0, pitch)), // Max 45 degree tilt
             bearing: bearing % 360,
             duration: 2000,
             essential: true
@@ -621,20 +740,25 @@ class MapRenderer {
     }
 
     /**
-     * Query features at a point (for context menu)
+     * Query features at a point
      */
     queryFeatures(point) {
         const regions = this.map.queryRenderedFeatures(point, { layers: ['hover-regions'] });
+        const countries = this.map.queryRenderedFeatures(point, { layers: ['hover-countries'] });
+        
+        // If we have a region, return it with country info attached
         if (regions.length) {
             const p = regions[0].properties;
+            const countryName = countries.length ? (countries[0].properties.NAME || countries[0].properties.ADMIN) : (p.admin || p.ADMIN);
             return { 
                 type: 'region', 
                 name: p.name || p.NAME, 
-                country: p.admin || p.ADMIN 
+                country: p.admin || p.ADMIN,
+                countryName: countryName
             };
         }
 
-        const countries = this.map.queryRenderedFeatures(point, { layers: ['hover-countries'] });
+        // Just country
         if (countries.length) {
             const p = countries[0].properties;
             return { 

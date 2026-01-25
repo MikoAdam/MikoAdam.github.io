@@ -8,7 +8,6 @@ class GeoData {
         this.countries = null;
         this.regions = null;
 
-        // Fixed centers for better visual positioning
         this.fixedCenters = {
             'france': [2.5, 46.6],
             'united kingdom': [-2.5, 54.5],
@@ -19,17 +18,14 @@ class GeoData {
             'spain': [-3.5, 40.0],
             'norway': [10.0, 62.0],
             'russia': [37.0, 55.0],
-            'russian federation': [37.0, 55.0]
+            'russian federation': [37.0, 55.0],
+            'kosovo': [20.9, 42.6]
         };
     }
 
-    /**
-     * Load geographic data with smart caching and fallback
-     */
     async load() {
-        const cacheKey = 'poc-maps-geodata-v2';
+        const cacheKey = 'poc-maps-geodata-v3';
         
-        // Try localStorage cache first
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             try {
@@ -37,7 +33,7 @@ class GeoData {
                 this.countries = data.countries;
                 this.regions = data.regions;
                 this.fixDisputedTerritories();
-                console.log('GeoData: Loaded from cache ⚡');
+                console.log('GeoData: Loaded from cache');
                 return;
             } catch (e) {
                 console.warn('Cache corrupted, reloading...');
@@ -45,7 +41,6 @@ class GeoData {
             }
         }
 
-        // Load from files with fallback
         const timeout = (ms) => new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Timeout')), ms)
         );
@@ -55,7 +50,6 @@ class GeoData {
             
             let countriesRes, regionsRes;
             
-            // Try local files first
             try {
                 [countriesRes, regionsRes] = await Promise.race([
                     Promise.all([
@@ -69,8 +63,7 @@ class GeoData {
                     throw new Error('Local files not found');
                 }
             } catch (localError) {
-                console.log('GeoData: Using GitHub fallback (slower)...');
-                // Fallback to GitHub
+                console.log('GeoData: Using GitHub fallback...');
                 [countriesRes, regionsRes] = await Promise.race([
                     Promise.all([
                         fetch(CONFIG.data.countriesFallback),
@@ -85,7 +78,6 @@ class GeoData {
             
             this.fixDisputedTerritories();
 
-            // Cache for next time (if under 5MB)
             try {
                 const cacheData = JSON.stringify({
                     countries: this.countries,
@@ -94,7 +86,7 @@ class GeoData {
                 
                 if (cacheData.length < 5 * 1024 * 1024) {
                     localStorage.setItem(cacheKey, cacheData);
-                    console.log('GeoData: Cached for next visit 💾');
+                    console.log('GeoData: Cached for next visit');
                 }
             } catch (e) {
                 console.warn('Could not cache:', e.message);
@@ -105,11 +97,8 @@ class GeoData {
         }
     }
 
-    /**
-     * Fix disputed territories (Crimea → Ukraine)
-     */
     fixDisputedTerritories() {
-        // Reassign Crimea regions to Ukraine
+        // Fix Crimea
         this.regions.features.forEach(f => {
             const name = (f.properties.name || f.properties.NAME || '').toLowerCase();
             if (name.includes('crimea') || name.includes('krym') || name.includes('sevastopol')) {
@@ -120,7 +109,6 @@ class GeoData {
             }
         });
 
-        // Merge Crimea geometry into Ukraine
         const ukraine = this.countries.features.find(f =>
             (f.properties.NAME || '').toLowerCase() === 'ukraine'
         );
@@ -134,12 +122,9 @@ class GeoData {
             crimeaRegions.forEach(crimea => this.mergeGeometry(ukraine, crimea));
         }
 
-        console.log('GeoData: Fixed Crimea → Ukraine');
+        console.log('GeoData: Fixed Crimea -> Ukraine');
     }
 
-    /**
-     * Merge geometry from source into target
-     */
     mergeGeometry(target, source) {
         if (source.geometry.type === 'Polygon') {
             if (target.geometry.type === 'Polygon') {
@@ -162,40 +147,34 @@ class GeoData {
         }
     }
 
-    /**
-     * Normalize string for comparison
-     */
     normalize(str) {
         return (str || '').toLowerCase().replace(/[-_]/g, ' ').replace(/^the\s+/, '').trim();
     }
 
-    /**
-     * Find country by name with fuzzy matching
-     */
     findCountry(name) {
         const normalized = this.normalize(name);
         const search = CONFIG.aliases[normalized] || normalized;
 
-        // Try exact match on NAME
+        // Exact match on NAME
         let result = this.countries.features.find(f => 
             this.normalize(f.properties.NAME) === search
         );
 
-        // Try exact match on ADMIN
+        // Exact match on ADMIN
         if (!result) {
             result = this.countries.features.find(f => 
                 this.normalize(f.properties.ADMIN) === search
             );
         }
 
-        // Try NAME_LONG
+        // NAME_LONG
         if (!result) {
             result = this.countries.features.find(f => 
                 f.properties.NAME_LONG && this.normalize(f.properties.NAME_LONG) === search
             );
         }
 
-        // Fuzzy match (starts with)
+        // Fuzzy
         if (!result) {
             result = this.countries.features.find(f => {
                 const n = this.normalize(f.properties.NAME);
@@ -208,15 +187,11 @@ class GeoData {
         return result;
     }
 
-    /**
-     * Find region/subdivision by name and parent country
-     */
     findRegion(name, country) {
         const n = this.normalize(name);
         const c = this.normalize(country);
         const ca = CONFIG.aliases[c] || c;
 
-        // Exact match
         let result = this.regions.features.find(f => {
             const props = f.properties;
             const names = [props.name, props.NAME, props.name_en, props.woe_name]
@@ -232,7 +207,6 @@ class GeoData {
             return nameMatch && parentMatch;
         });
 
-        // Fuzzy match
         if (!result) {
             result = this.regions.features.find(f => {
                 const props = f.properties;
@@ -257,9 +231,6 @@ class GeoData {
         return result;
     }
 
-    /**
-     * Get bounding box of geometry
-     */
     getBounds(geometry) {
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
@@ -278,9 +249,6 @@ class GeoData {
         return [[minX, minY], [maxX, maxY]];
     }
 
-    /**
-     * Get center point of geometry (with fixed overrides)
-     */
     getCenter(geometry, countryName = null) {
         if (countryName) {
             const key = countryName.toLowerCase();

@@ -1,6 +1,5 @@
 /**
  * Pillars of Creation Maps - Script Executor
- * Executes parsed animation commands
  */
 
 class ScriptExecutor {
@@ -9,18 +8,12 @@ class ScriptExecutor {
         this.geoData = geoData;
     }
 
-    /**
-     * Execute array of commands sequentially
-     */
     async execute(commands) {
         for (const cmd of commands) {
             await this.executeCommand(cmd);
         }
     }
 
-    /**
-     * Execute a single command
-     */
     async executeCommand(cmd) {
         const color = CONFIG.colors[cmd.color] || cmd.color || '#3b82f6';
 
@@ -89,6 +82,11 @@ class ScriptExecutor {
                 break;
             }
 
+            case 'removeArrows': {
+                this.renderer.clearAttackArrows();
+                break;
+            }
+
             case 'zoom': {
                 const feature = this.geoData.findCountry(cmd.target);
                 if (feature) {
@@ -117,9 +115,6 @@ class ScriptExecutor {
         }
     }
 
-    /**
-     * Delay helper for async timing
-     */
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }

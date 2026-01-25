@@ -1,6 +1,5 @@
 /**
  * Pillars of Creation Maps - Context Menu
- * Right-click context menu with event delegation
  */
 
 class ContextMenu {
@@ -18,9 +17,6 @@ class ContextMenu {
         this.setupCloseHandler();
     }
 
-    /**
-     * Build color palette
-     */
     setupColorPalette() {
         const palette = document.getElementById('colorPalette');
 
@@ -34,11 +30,7 @@ class ContextMenu {
         });
     }
 
-    /**
-     * Setup event handlers with delegation
-     */
     setupEventHandlers() {
-        // Color swatch selection
         document.getElementById('colorPalette').addEventListener('click', (e) => {
             if (e.target.classList.contains('color-swatch')) {
                 const color = e.target.dataset.color;
@@ -46,7 +38,6 @@ class ContextMenu {
             }
         });
 
-        // Menu item actions
         document.getElementById('contextMenu').addEventListener('click', (e) => {
             const item = e.target.closest('.context-menu-item');
             if (!item) return;
@@ -58,9 +49,6 @@ class ContextMenu {
         });
     }
 
-    /**
-     * Close menu when clicking elsewhere
-     */
     setupCloseHandler() {
         document.addEventListener('click', (e) => {
             if (!this.element.contains(e.target)) {
@@ -69,9 +57,6 @@ class ContextMenu {
         });
     }
 
-    /**
-     * Show context menu at position (with boundary checking)
-     */
     show(event, feature, lngLat) {
         this.selectedFeature = feature;
         this.clickLngLat = lngLat;
@@ -84,15 +69,12 @@ class ContextMenu {
             this.titleElement.textContent = `${lngLat.lat.toFixed(2)}, ${lngLat.lng.toFixed(2)}`;
         }
 
-        // Position menu with boundary checking
         let x = event.clientX;
         let y = event.clientY;
         
-        // Show menu temporarily to get its size
         this.element.style.display = 'block';
         const rect = this.element.getBoundingClientRect();
         
-        // Adjust if off-screen
         if (x + rect.width > window.innerWidth) {
             x = window.innerWidth - rect.width - 10;
         }
@@ -105,33 +87,35 @@ class ContextMenu {
         this.element.classList.add('visible');
     }
 
-    /**
-     * Hide context menu
-     */
     close() {
         this.element.classList.remove('visible');
+        this.element.style.display = 'none';
     }
 
-    /**
-     * Select a color from palette
-     */
     selectColor(name, swatch) {
         this.selectedColor = name;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         swatch.classList.add('selected');
     }
 
-    /**
-     * Add country coloring command
-     */
     addCountry() {
         this.close();
-        if (!this.selectedFeature || this.selectedFeature.type !== 'country') return;
+        if (!this.selectedFeature) return;
         
-        // Normalize country name for script
-        let countryName = this.selectedFeature.name.toLowerCase();
+        // Get country name from either country or region's parent
+        let countryName;
+        if (this.selectedFeature.type === 'country') {
+            countryName = this.selectedFeature.name;
+        } else if (this.selectedFeature.countryName) {
+            countryName = this.selectedFeature.countryName;
+        } else if (this.selectedFeature.country) {
+            countryName = this.selectedFeature.country;
+        } else {
+            return;
+        }
         
-        // Handle special cases
+        countryName = countryName.toLowerCase();
+        
         if (countryName === 'united states of america') countryName = 'usa';
         if (countryName === 'united kingdom') countryName = 'uk';
         if (countryName === 'russian federation') countryName = 'russia';
@@ -139,9 +123,6 @@ class ContextMenu {
         this.editor.insert(`${countryName}: ${this.selectedColor}, pulse`);
     }
 
-    /**
-     * Add region coloring command
-     */
     addRegion() {
         this.close();
         if (!this.selectedFeature) return;
@@ -155,9 +136,6 @@ class ContextMenu {
         this.editor.insert(line);
     }
 
-    /**
-     * Add line drawing command
-     */
     addLine() {
         this.close();
         if (!this.selectedFeature || this.selectedFeature.type !== 'country') return;
@@ -176,9 +154,6 @@ class ContextMenu {
         }
     }
 
-    /**
-     * Add bubble label command
-     */
     addBubble() {
         this.close();
         if (!this.clickLngLat) return;
@@ -187,9 +162,6 @@ class ContextMenu {
         this.editor.insert(`bubble: ${this.clickLngLat.lat.toFixed(1)}, ${this.clickLngLat.lng.toFixed(1)}, "${text}", ${this.selectedColor}`);
     }
 
-    /**
-     * Add cinematic camera command
-     */
     addCinematic() {
         this.close();
         if (!this.clickLngLat) return;
@@ -198,5 +170,11 @@ class ContextMenu {
         const pitch = Math.round(this.renderer.getPitch());
         const bearing = Math.round(this.renderer.getBearing());
         this.editor.insert(`cinematic: ${this.clickLngLat.lat.toFixed(1)}, ${this.clickLngLat.lng.toFixed(1)}, ${zoom}, ${pitch}, ${bearing}`);
+    }
+
+    // Cancel just closes the menu
+    close() {
+        this.element.classList.remove('visible');
+        this.element.style.display = 'none';
     }
 }

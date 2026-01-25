@@ -42,6 +42,18 @@ header {
 .logo {
     font-size: 18px;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+}
+
+.logo span {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -317,6 +329,33 @@ main {
     height: 100%;
 }
 
+.map-year-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 32px;
+    font-weight: 800;
+    font-family: 'Space Grotesk', sans-serif;
+    border: 3px solid #667eea;
+    z-index: 100;
+    display: none;
+    letter-spacing: 1px;
+}
+
+.map-year-overlay.highlight {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-color: #fff;
+}
+
+.map-year-overlay.visible {
+    display: block;
+}
+
 .map-status {
     position: absolute;
     bottom: 10px;
@@ -520,87 +559,34 @@ main {
     color: #fff;
 }
 
-/* Military Attack Arrows - Thick neon style with moving stripes */
+/* Military Attack Arrows - Big, aggressive, red by default */
 .map-attack-arrow {
     pointer-events: none;
     position: absolute;
     transform-origin: 0 50%;
     z-index: 500;
+    filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.6));
 }
 
 .map-attack-arrow-line {
-    height: 14px;
-    background: #dc2626;
+    height: 8px;
+    background: currentColor;
     position: relative;
-    border-radius: 7px;
-    box-shadow: 
-        0 0 10px rgba(220, 38, 38, 0.6),
-        0 0 20px rgba(220, 38, 38, 0.4),
-        inset 0 2px 4px rgba(255, 255, 255, 0.2);
-    border: 2px solid #ef4444;
-}
-
-.map-attack-arrow-line::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-        90deg,
-        transparent 0px,
-        transparent 15px,
-        rgba(255, 255, 255, 0.25) 15px,
-        rgba(255, 255, 255, 0.25) 20px
-    );
-    border-radius: 5px;
-    animation: stripeMove 1.5s linear infinite;
-}
-
-.map-attack-arrow-line::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 10%;
-    right: 30%;
-    height: 2px;
-    background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.6) 50%,
-        transparent 100%);
-    border-radius: 1px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    border-radius: 2px;
 }
 
 .map-attack-arrow-head {
     position: absolute;
-    right: -28px;
+    right: -24px;
     top: 50%;
     transform: translateY(-50%);
     width: 0;
     height: 0;
-    border-left: 38px solid #dc2626;
-    border-top: 22px solid transparent;
-    border-bottom: 22px solid transparent;
-    filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.8));
-}
-
-.map-attack-arrow-head::before {
-    content: '';
-    position: absolute;
-    top: -19px;
-    left: -35px;
-    width: 0;
-    height: 0;
-    border-left: 35px solid #ef4444;
-    border-top: 19px solid transparent;
-    border-bottom: 19px solid transparent;
-}
-
-@keyframes stripeMove {
-    to {
-        background-position: 25px 0;
-    }
+    border-left: 28px solid currentColor;
+    border-top: 14px solid transparent;
+    border-bottom: 14px solid transparent;
+    filter: drop-shadow(2px 0 4px rgba(0,0,0,0.5));
 }
 
 /* Text Arrow Labels */
@@ -739,7 +725,6 @@ main {
     }
 }
 
-/* Military attack arrows - thick, animated */
 .attack-arrow-line {
     stroke-width: 6;
     fill: none;
