@@ -42,9 +42,21 @@ class LabelFactory {
     static createArrow(text, direction, color) {
         const el = document.createElement('div');
         el.className = 'map-arrow ' + (direction || 'right');
+        el.style.color = CONFIG.colors[color] || color || '#fff';
         
         const borderColor = CONFIG.colors[color] || color || '#fff';
-        el.innerHTML = `<div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>`;
+        
+        if (direction === 'left') {
+            el.innerHTML = `
+                <div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>
+                <div class="map-arrow-pointer"></div>
+            `;
+        } else {
+            el.innerHTML = `
+                <div class="map-arrow-pointer"></div>
+                <div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>
+            `;
+        }
         
         return el;
     }

@@ -50,6 +50,15 @@ class ScriptExecutor {
                 break;
             }
 
+            case 'attack': {
+                const from = this.geoData.findCountry(cmd.from);
+                const to = this.geoData.findCountry(cmd.to);
+                if (from && to) {
+                    this.renderer.drawAttackArrow(from, to, color);
+                }
+                break;
+            }
+
             case 'label': {
                 const el = LabelFactory.createLabel(cmd.text, cmd.size, cmd.color);
                 this.renderer.addMarker(el, [cmd.lng, cmd.lat]);

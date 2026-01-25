@@ -38,6 +38,7 @@
                 <input type="checkbox" id="showLabels"> Labels
             </label>
             <button onclick="app.clearAll()">Clear Map</button>
+            <button onclick="app.takeScreenshot()">📸 Screenshot</button>
             <button onclick="app.toggleFullscreen()">⛶ Fullscreen</button>
             <button onclick="app.startVideoRecording()" id="recordBtn">⏺ Record</button>
             <button onclick="app.stopVideoRecording()" id="stopBtn" style="display:none">⏹ Stop & Save</button>
@@ -163,11 +164,12 @@ cinematic: 52, 13, 6, 45, 60"></textarea>
     <!-- MapLibre -->
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-    <!-- App modules (order matters!) -->
+    <!-- App modules (order matters! Dependencies first) -->
     <script src="./js/config.js"></script>
+    <script src="./js/examples.js"></script>
+    <script src="./js/labels.js"></script>
     <script src="./js/geodata.js"></script>
     <script src="./js/renderer.js"></script>
-    <script src="./js/labels.js"></script>
     <script src="./js/parser.js"></script>
     <script src="./js/executor.js"></script>
     <script src="./js/editor.js"></script>

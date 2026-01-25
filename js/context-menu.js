@@ -70,7 +70,7 @@ class ContextMenu {
     }
 
     /**
-     * Show context menu at position
+     * Show context menu at position (with boundary checking)
      */
     show(event, feature, lngLat) {
         this.selectedFeature = feature;
@@ -84,8 +84,24 @@ class ContextMenu {
             this.titleElement.textContent = `${lngLat.lat.toFixed(2)}, ${lngLat.lng.toFixed(2)}`;
         }
 
-        this.element.style.left = event.clientX + 'px';
-        this.element.style.top = event.clientY + 'px';
+        // Position menu with boundary checking
+        let x = event.clientX;
+        let y = event.clientY;
+        
+        // Show menu temporarily to get its size
+        this.element.style.display = 'block';
+        const rect = this.element.getBoundingClientRect();
+        
+        // Adjust if off-screen
+        if (x + rect.width > window.innerWidth) {
+            x = window.innerWidth - rect.width - 10;
+        }
+        if (y + rect.height > window.innerHeight) {
+            y = window.innerHeight - rect.height - 10;
+        }
+        
+        this.element.style.left = x + 'px';
+        this.element.style.top = y + 'px';
         this.element.classList.add('visible');
     }
 
@@ -111,7 +127,16 @@ class ContextMenu {
     addCountry() {
         this.close();
         if (!this.selectedFeature || this.selectedFeature.type !== 'country') return;
-        this.editor.insert(`${this.selectedFeature.name.toLowerCase()}: ${this.selectedColor}, radial`);
+        
+        // Normalize country name for script
+        let countryName = this.selectedFeature.name.toLowerCase();
+        
+        // Handle special cases
+        if (countryName === 'united states of america') countryName = 'usa';
+        if (countryName === 'united kingdom') countryName = 'uk';
+        if (countryName === 'russian federation') countryName = 'russia';
+        
+        this.editor.insert(`${countryName}: ${this.selectedColor}, pulse`);
     }
 
     /**

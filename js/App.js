@@ -142,7 +142,39 @@ class App {
         }
 
         this.renderer.clearAll();
-        this.setStatus('Running...');
+        
+        // FORCE all tiles to load at all zoom levels
+        const zoomLevels = [2, 3, 4, 5, 6, 7, 8];
+        
+        for (let i = 0; i < zoomLevels.length; i++) {
+            const zoom = zoomLevels[i];
+            this.setStatus(`Preloading tiles (${i + 1}/${zoomLevels.length})...`);
+            
+            this.renderer.map.jumpTo({ 
+                center: [10, 50], 
+                zoom: zoom,
+                pitch: 0,
+                bearing: 0
+            });
+            
+            // Wait for initial render
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Wait until tiles are loaded
+            let attempts = 0;
+            while (!this.renderer.map.areTilesLoaded() && attempts < 20) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                attempts++;
+            }
+            
+            // Wait for idle state
+            await new Promise(resolve => this.renderer.map.once('idle', resolve));
+            
+            // Extra buffer
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        this.setStatus('Running animation...');
 
         try {
             await this.executor.execute(commands);
@@ -178,6 +210,56 @@ class App {
         } else {
             mapContainer.requestFullscreen();
         }
+    }
+
+    /**
+     * Take screenshot of current map view
+     */
+    takeScreenshot() {
+        const mapCanvas = this.renderer.map.getCanvas();
+        
+        // Create a temporary canvas to add attribution
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = mapCanvas.width;
+        tempCanvas.height = mapCanvas.height;
+        const ctx = tempCanvas.getContext('2d');
+        
+        // Draw map
+        ctx.drawImage(mapCanvas, 0, 0);
+        
+        // Add attribution
+        const isSatellite = document.getElementById('styleSelect').value === 'satellite';
+        const text = isSatellite
+            ? '© NASA GIBS · Natural Earth'
+            : '© OpenFreeMap · Natural Earth';
+        
+        ctx.font = '14px Space Grotesk, sans-serif';
+        const textWidth = ctx.measureText(text).width;
+        const padding = 10;
+        const x = tempCanvas.width - textWidth - padding - 14;
+        const y = tempCanvas.height - 14;
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.beginPath();
+        ctx.roundRect(x - padding, y - 16, textWidth + padding * 2, 24, 6);
+        ctx.fill();
+        
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(text, x, y);
+        
+        // Download
+        tempCanvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pillars-of-creation-${Date.now()}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.setStatus('Screenshot saved! 📸');
+            
+            // Reset status after 2s
+            setTimeout(() => this.setStatus('Ready - Right-click map for options'), 2000);
+        }, 'image/png');
     }
 
     /**

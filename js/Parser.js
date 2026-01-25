@@ -43,6 +43,16 @@ class ScriptParser {
             };
         }
 
+        // attack: Country1, Country2, color (military arrow)
+        if ((match = line.match(/^attack:\s*(.+?),\s*(.+?),\s*(\S+)$/i))) {
+            return { 
+                type: 'attack', 
+                from: match[1], 
+                to: match[2], 
+                color: match[3] 
+            };
+        }
+
         // bubble: lat, lng, "text", color
         if ((match = line.match(/^bubble:\s*(-?[\d.]+),\s*(-?[\d.]+),\s*"([^"]+)"(?:,\s*(\w+))?$/i))) {
             return { 
