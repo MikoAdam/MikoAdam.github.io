@@ -391,18 +391,18 @@ main {
     position: absolute;
     top: 24px;
     left: 24px;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     color: #ffffff;
-    padding: 16px 36px;
-    border-radius: 10px;
-    font-size: 40px;
+    padding: 14px 32px;
+    border-radius: 50px;
+    font-size: 28px;
     font-weight: 700;
     font-family: 'Space Grotesk', sans-serif;
     z-index: 100;
     display: none;
     letter-spacing: -1px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    border: 2px solid #4cd964;
 }
 
 .map-year-overlay.visible {
@@ -410,10 +410,10 @@ main {
 }
 
 .map-bubble {
-    background: rgba(0, 0, 0, 0.92);
-    color: #ffffff;
+    background: rgba(20, 20, 30, 0.95);
+    color: #fff;
     padding: 16px 22px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 15px;
     font-weight: 500;
     font-family: 'Space Grotesk', sans-serif;
@@ -421,21 +421,11 @@ main {
     max-width: 380px;
     white-space: normal;
     line-height: 1.6;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+    border-left: 4px solid #4cd964;
 }
 
-.map-bubble.red,
-.map-bubble.green,
-.map-bubble.yellow,
-.map-bubble.orange,
-.map-bubble.purple,
-.map-bubble.cyan,
-.map-bubble.white,
-.map-bubble.blue {
-    background: rgba(0, 0, 0, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
+/* Bubble colors handled by border-left color */
 
 .map-status {
     position: absolute;
@@ -978,4 +968,23 @@ main {
 
 .ctrl-btn.secondary:hover:not(:disabled) {
     border-color: #0af;
+}
+
+/* Hide ugly white frames on MapLibre controls */
+.maplibregl-ctrl button {
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    border: 1px solid #3a3a50 !important;
+}
+
+.maplibregl-ctrl button:hover {
+    background-color: rgba(20, 20, 30, 0.95) !important;
+}
+
+.maplibregl-ctrl-group {
+    background: transparent !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.maplibregl-ctrl-icon {
+    filter: invert(1);
 }

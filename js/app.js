@@ -86,7 +86,7 @@ class ContextMenu {
 }
 
 /**
- * App - Main application controller with DVD-style controls
+ * App - Main application controller
  */
 class App {
     constructor() {
@@ -188,13 +188,6 @@ class App {
         editor.focus();
         editor.setSelectionRange(beforeCursor, beforeCursor + lineLength);
         editor.scrollTop = Math.max(0, (lineIndex - 5) * 20);
-        
-        // Clear any existing timeout
-        if (this.highlightTimeout) {
-            clearTimeout(this.highlightTimeout);
-        }
-        
-        // Keep highlight visible - don't auto-clear
     }
 
     clearHighlight() {
@@ -214,7 +207,6 @@ class App {
         if (progressBar) progressBar.style.width = progress + '%';
         if (position) position.textContent = `${current} / ${total}`;
         
-        // Highlight current line
         if (this.scriptLines[this.currentIndex] !== undefined) {
             this.highlightLine(this.scriptLines[this.currentIndex]);
         } else {
@@ -260,7 +252,6 @@ class App {
         const script = this.editor.getValue();
         const allLines = script.split('\n');
         
-        // Only parse if we don't have commands yet or if at start
         if (this.commands.length === 0 || this.currentIndex === 0) {
             this.commands = [];
             this.scriptLines = [];
@@ -309,9 +300,11 @@ class App {
         }
 
         if (this.currentIndex < this.commands.length) {
+            this.isRunning = false;
             await this.executor.executeCommand(this.commands[this.currentIndex]);
             this.currentIndex++;
             this.updateTimeline();
+            this.showControls(false);
             this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
         } else {
             this.setStatus('End');
@@ -320,12 +313,11 @@ class App {
 
     async stepBackward() {
         if (this.currentIndex > 0) {
+            this.isRunning = false;
             this.currentIndex--;
             
-            // ALWAYS replay from start to maintain correct state
             this.renderer.clearAll();
             for (let i = 0; i < this.currentIndex; i++) {
-                // Execute silently without delays for speed
                 const cmd = this.commands[i];
                 if (cmd.type !== 'wait') {
                     await this.executor.executeCommand(cmd);
@@ -333,6 +325,7 @@ class App {
             }
             
             this.updateTimeline();
+            this.showControls(false);
             this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
         } else {
             this.setStatus('Start');
@@ -390,8 +383,93 @@ class App {
         const el = document.getElementById('status');
         if (el) el.textContent = message;
     }
+
+    // Screenshot
+    takeScreenshot() {
+        const canvas = this.renderer.map.getCanvas();
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ggmaps-screenshot.png';
+            a.click();
+            URL.revokeObjectURL(url);
+            this.setStatus('Screenshot saved!');
+        });
+    }
+
+    // Video recording
+    startVideoRecording() {
+        const mapCanvas = this.renderer.map.getCanvas();
+        this.recordingCanvas = document.createElement('canvas');
+        this.recordingCanvas.width = mapCanvas.width;
+        this.recordingCanvas.height = mapCanvas.height;
+        this.recordingCtx = this.recordingCanvas.getContext('2d');
+        this.isRecording = true;
+        this.drawRecordingFrame();
+
+        const stream = this.recordingCanvas.captureStream(30);
+        this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+        this.recordedChunks = [];
+
+        this.mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) this.recordedChunks.push(e.data);
+        };
+
+        this.mediaRecorder.onstop = () => {
+            this.isRecording = false;
+            const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ggmaps.webm';
+            a.click();
+            URL.revokeObjectURL(url);
+            this.setStatus('Video saved!');
+        };
+
+        this.mediaRecorder.start();
+        document.getElementById('recordBtn').style.display = 'none';
+        document.getElementById('stopRecordBtn').style.display = 'inline-block';
+        this.setStatus('⏺ Recording...');
+    }
+
+    drawRecordingFrame() {
+        if (!this.isRecording) return;
+        const mapCanvas = this.renderer.map.getCanvas();
+        const ctx = this.recordingCtx;
+        ctx.drawImage(mapCanvas, 0, 0);
+
+        const isSatellite = document.getElementById('styleSelect').value === 'satellite';
+        const text = isSatellite ? '© NASA Blue Marble · Natural Earth' : '© OpenFreeMap · Natural Earth';
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+        const textWidth = ctx.measureText(text).width;
+        const padding = 8;
+        const x = this.recordingCanvas.width - textWidth - padding - 12;
+        const y = this.recordingCanvas.height - 12;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.beginPath();
+        ctx.roundRect(x - padding, y - 14, textWidth + padding * 2, 20, 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(text, x, y);
+
+        requestAnimationFrame(() => this.drawRecordingFrame());
+    }
+
+    stopVideoRecording() {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+            document.getElementById('recordBtn').style.display = 'inline-block';
+            document.getElementById('stopRecordBtn').style.display = 'none';
+            this.setStatus('Saving video...');
+        }
+    }
 }
 
+// Initialize
 const app = new App();
 app.init().catch(err => {
     console.error('Failed to initialize:', err);

@@ -20,8 +20,13 @@ class LabelFactory {
      */
     static createBubble(text, color) {
         const el = document.createElement('div');
-        el.className = 'map-bubble ' + (color || 'blue');
+        el.className = 'map-bubble';
         el.textContent = text;
+        
+        // Set border-left color based on color parameter
+        const borderColor = CONFIG.colors[color] || color || '#4cd964';
+        el.style.borderLeftColor = borderColor;
+        
         return el;
     }
 

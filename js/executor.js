@@ -29,7 +29,8 @@ class ScriptExecutor {
             case 'region': {
                 const feature = this.geoData.findRegion(cmd.name, cmd.country);
                 if (feature) {
-                    this.renderer.drawFeature(feature, color, cmd.animation);
+                    const animation = cmd.occupied ? 'occupied' : (cmd.animation || 'none');
+                    this.renderer.drawFeature(feature, color, animation);
                 }
                 break;
             }

@@ -11,7 +11,8 @@
 
 <header>
     <div class="logo">
-        <span>🌍 GGMaps</span>
+        <img src="icon.png" alt="GGMaps" class="logo-icon">
+        <span>GGMaps</span>
     </div>
     <div class="header-controls">
         <select id="styleSelect">
@@ -26,6 +27,9 @@
         </label>
         <button onclick="app.clearAll()">Clear Map</button>
         <button onclick="app.toggleFullscreen()">⛶ Fullscreen</button>
+        <button onclick="app.takeScreenshot()">📸 Screenshot</button>
+        <button onclick="app.startVideoRecording()" id="recordBtn">⏺ Record</button>
+        <button onclick="app.stopVideoRecording()" id="stopRecordBtn" style="display:none">⏹ Stop</button>
     </div>
 </header>
 
