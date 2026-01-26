@@ -1,7 +1,93 @@
 /**
- * Pillars of Creation Maps - Main Application
+ * ContextMenu - Right-click context menu for map
  */
+class ContextMenu {
+    constructor(editor, getZoom) {
+        this.editor = editor;
+        this.getZoom = getZoom;
+        this.element = document.getElementById('contextMenu');
+        this.titleElement = document.getElementById('menuTitle');
+        this.selectedFeature = null;
+        this.selectedColor = 'blue';
+        this.clickLngLat = null;
+        this.setupColorPalette();
+        this.setupCloseHandler();
+    }
 
+    setupColorPalette() {
+        const palette = document.getElementById('colorPalette');
+        Object.entries(CONFIG.colors).forEach(([name, hex]) => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch' + (name === 'blue' ? ' selected' : '');
+            swatch.style.background = hex;
+            swatch.title = name;
+            swatch.onclick = (e) => {
+                e.stopPropagation();
+                this.selectColor(name, swatch);
+            };
+            palette.appendChild(swatch);
+        });
+    }
+
+    setupCloseHandler() {
+        document.addEventListener('click', () => this.close());
+    }
+
+    show(event, feature, lngLat) {
+        this.selectedFeature = feature;
+        this.clickLngLat = lngLat;
+        if (feature) {
+            this.titleElement.textContent = feature.type === 'region'
+                ? `${feature.name}, ${feature.country}`
+                : feature.name;
+        } else {
+            this.titleElement.textContent = `${lngLat.lat.toFixed(2)}, ${lngLat.lng.toFixed(2)}`;
+        }
+        this.element.style.left = event.clientX + 'px';
+        this.element.style.top = event.clientY + 'px';
+        this.element.classList.add('visible');
+    }
+
+    close() {
+        this.element.classList.remove('visible');
+    }
+
+    selectColor(name, swatch) {
+        this.selectedColor = name;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+    }
+
+    addRegion() {
+        this.close();
+        if (!this.selectedFeature) return;
+        let line;
+        if (this.selectedFeature.type === 'region') {
+            line = `region: ${this.selectedFeature.name}, ${this.selectedFeature.country}, ${this.selectedColor}`;
+        } else {
+            line = `${this.selectedFeature.name.toLowerCase()}: ${this.selectedColor}`;
+        }
+        this.editor.insert(line);
+    }
+
+    addBubble() {
+        this.close();
+        if (!this.clickLngLat) return;
+        const text = this.selectedFeature ? this.selectedFeature.name : 'Label';
+        this.editor.insert(`bubble: ${this.clickLngLat.lat.toFixed(1)}, ${this.clickLngLat.lng.toFixed(1)}, "${text}", ${this.selectedColor}`);
+    }
+
+    addFly() {
+        this.close();
+        if (!this.clickLngLat) return;
+        const zoom = Math.round(this.getZoom());
+        this.editor.insert(`fly: ${this.clickLngLat.lat.toFixed(1)}, ${this.clickLngLat.lng.toFixed(1)}, ${zoom}`);
+    }
+}
+
+/**
+ * App - Main application controller with DVD-style controls
+ */
 class App {
     constructor() {
         this.geoData = new GeoData();
@@ -10,68 +96,54 @@ class App {
         this.executor = null;
         this.editor = new Editor('editor');
         this.menu = null;
-        this.isRecording = false;
-        this.mediaRecorder = null;
-        this.recordedChunks = [];
-        this.recordingCanvas = null;
-        this.recordingCtx = null;
+        this.isRunning = false;
+        this.isPaused = false;
+        this.commands = [];
+        this.currentIndex = 0;
+        this.scriptLines = [];
+        this.highlightTimeout = null;
     }
 
     async init() {
         this.setStatus('Loading map...');
-
-        try {
-            await this.geoData.load();
-
-            this.renderer = new MapRenderer('map', this.geoData);
-            await this.renderer.init();
-
-            this.executor = new ScriptExecutor(this.renderer, this.geoData);
-
-            this.menu = new ContextMenu(this.editor, this.renderer);
-
-            this.setupEventHandlers();
-
-            this.loadExamples();
-
-            // Force camera to desired position after everything is loaded
-            this.renderer.map.jumpTo({
-                center: [20, 48],
-                zoom: 3,
-                pitch: 0,
-                bearing: 0
-            });
-
-            this.setStatus('Ready');
-        } catch (err) {
-            console.error('Initialization failed:', err);
-            this.setStatus('Error: ' + err.message);
-        }
+        await this.geoData.load();
+        this.renderer = new MapRenderer('map', this.geoData);
+        await this.renderer.init();
+        this.executor = new ScriptExecutor(this.renderer, this.geoData);
+        this.menu = new ContextMenu(this.editor, () => this.renderer.getZoom());
+        this.setupEventHandlers();
+        this.loadExamples();
+        this.setStatus('Ready');
     }
 
     setupEventHandlers() {
-        document.getElementById('styleSelect').addEventListener('change', (e) => {
+        document.getElementById('styleSelect').addEventListener('change', e => {
             this.renderer.setStyle(e.target.value);
             this.updateSatelliteControls(e.target.value === 'satellite');
         });
-
-        document.getElementById('showBorders').addEventListener('change', (e) => {
+        document.getElementById('showBorders').addEventListener('change', e => {
             this.renderer.toggleBorders(e.target.checked);
         });
-
-        document.getElementById('showLabels').addEventListener('change', (e) => {
+        document.getElementById('showLabels').addEventListener('change', e => {
             this.renderer.toggleLabels(e.target.checked);
         });
-
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
         });
-
-        this.renderer.on('contextmenu', (e) => {
+        this.renderer.on('contextmenu', e => {
             e.preventDefault();
             const feature = this.renderer.queryFeatures(e.point);
             this.menu.show(e.originalEvent, feature, e.lngLat);
         });
+    }
+
+    toggleFullscreen() {
+        const mapContainer = document.querySelector('.map-container');
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            mapContainer.requestFullscreen();
+        }
     }
 
     updateSatelliteControls(isSatellite) {
@@ -83,7 +155,6 @@ class App {
     switchTab(tabName) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-
         document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById('tab-' + tabName).classList.add('active');
     }
@@ -96,7 +167,6 @@ class App {
                 <p>${example.description}</p>
             </div>
         `).join('');
-
         container.querySelectorAll('.example-card').forEach(card => {
             card.addEventListener('click', () => this.loadExample(card.dataset.key));
         });
@@ -107,29 +177,208 @@ class App {
         this.switchTab('editor');
     }
 
+    highlightLine(lineIndex) {
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        const lines = editor.value.split('\n');
+        const beforeCursor = lines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+        const lineLength = lines[lineIndex] ? lines[lineIndex].length : 0;
+        
+        editor.focus();
+        editor.setSelectionRange(beforeCursor, beforeCursor + lineLength);
+        editor.scrollTop = Math.max(0, (lineIndex - 5) * 20);
+        
+        // Clear any existing timeout
+        if (this.highlightTimeout) {
+            clearTimeout(this.highlightTimeout);
+        }
+        
+        // Keep highlight visible - don't auto-clear
+    }
+
+    clearHighlight() {
+        const editor = document.getElementById('editor');
+        if (editor) {
+            editor.setSelectionRange(0, 0);
+            editor.blur();
+        }
+    }
+
+    updateTimeline() {
+        const total = this.commands.length;
+        const current = this.currentIndex;
+        const progress = total > 0 ? (current / total) * 100 : 0;
+        const progressBar = document.getElementById('timelineProgress');
+        const position = document.getElementById('timelinePosition');
+        if (progressBar) progressBar.style.width = progress + '%';
+        if (position) position.textContent = `${current} / ${total}`;
+        
+        // Highlight current line
+        if (this.scriptLines[this.currentIndex] !== undefined) {
+            this.highlightLine(this.scriptLines[this.currentIndex]);
+        } else {
+            this.clearHighlight();
+        }
+    }
+
+    showControls(running) {
+        const runBtn = document.getElementById('runBtn');
+        const dvdControls = document.getElementById('dvdControls');
+        const dvdControls2 = document.getElementById('dvdControls2');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const playBtn = document.getElementById('playBtn');
+        
+        if (this.commands.length === 0) {
+            if (runBtn) runBtn.style.display = 'block';
+            if (dvdControls) dvdControls.style.display = 'none';
+            if (dvdControls2) dvdControls2.style.display = 'none';
+        } else {
+            if (runBtn) runBtn.style.display = 'none';
+            if (dvdControls) dvdControls.style.display = 'flex';
+            if (dvdControls2) dvdControls2.style.display = 'flex';
+            
+            if (prevBtn) prevBtn.disabled = (this.currentIndex === 0);
+            if (nextBtn) nextBtn.disabled = (this.currentIndex >= this.commands.length);
+            if (stopBtn) stopBtn.disabled = !running;
+            if (playBtn) playBtn.disabled = running || (this.currentIndex >= this.commands.length);
+        }
+    }
+
+    stop() {
+        this.isPaused = false;
+        this.isRunning = false;
+        this.showControls(false);
+        this.setStatus('Stopped');
+    }
+
     async run() {
+        if (this.isRunning) return;
+        
         const script = this.editor.getValue();
-        const commands = this.parser.parse(script);
+        const allLines = script.split('\n');
+        
+        // Only parse if we don't have commands yet or if at start
+        if (this.commands.length === 0 || this.currentIndex === 0) {
+            this.commands = [];
+            this.scriptLines = [];
+            
+            allLines.forEach((line, index) => {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith('#')) {
+                    const cmd = this.parser.parseLine(trimmed);
+                    if (cmd) {
+                        this.commands.push(cmd);
+                        this.scriptLines.push(index);
+                    }
+                }
+            });
 
-        if (!commands.length) {
-            this.setStatus('No commands to run');
-            return;
+            if (!this.commands.length) {
+                this.setStatus('No commands to run');
+                return;
+            }
+            
+            this.renderer.clearAll();
+            this.currentIndex = 0;
         }
 
-        this.renderer.clearAll();
-        this.setStatus('Running animation...');
+        this.isRunning = true;
+        this.showControls(true);
+        this.updateTimeline();
+        this.setStatus('Running...');
 
-        try {
-            await this.executor.execute(commands);
+        while (this.currentIndex < this.commands.length && this.isRunning) {
+            await this.executor.executeCommand(this.commands[this.currentIndex]);
+            this.currentIndex++;
+            this.updateTimeline();
+        }
+
+        this.isRunning = false;
+        this.showControls(false);
+        if (this.currentIndex >= this.commands.length) {
             this.setStatus('Done');
-        } catch (err) {
-            console.error('Execution error:', err);
-            this.setStatus('Error: ' + err.message);
         }
+    }
+
+    async stepForward() {
+        if (!this.commands.length) {
+            await this.prepareCommands();
+        }
+
+        if (this.currentIndex < this.commands.length) {
+            await this.executor.executeCommand(this.commands[this.currentIndex]);
+            this.currentIndex++;
+            this.updateTimeline();
+            this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
+        } else {
+            this.setStatus('End');
+        }
+    }
+
+    async stepBackward() {
+        if (this.currentIndex > 0) {
+            this.currentIndex--;
+            
+            // ALWAYS replay from start to maintain correct state
+            this.renderer.clearAll();
+            for (let i = 0; i < this.currentIndex; i++) {
+                // Execute silently without delays for speed
+                const cmd = this.commands[i];
+                if (cmd.type !== 'wait') {
+                    await this.executor.executeCommand(cmd);
+                }
+            }
+            
+            this.updateTimeline();
+            this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
+        } else {
+            this.setStatus('Start');
+        }
+    }
+
+    async prepareCommands() {
+        const script = this.editor.getValue();
+        const allLines = script.split('\n');
+        this.commands = [];
+        this.scriptLines = [];
+        
+        allLines.forEach((line, index) => {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith('#')) {
+                const cmd = this.parser.parseLine(trimmed);
+                if (cmd) {
+                    this.commands.push(cmd);
+                    this.scriptLines.push(index);
+                }
+            }
+        });
+
+        if (!this.commands.length) return;
+        this.renderer.clearAll();
+        this.currentIndex = 0;
+        this.showControls(false);
+        this.updateTimeline();
+    }
+
+    restart() {
+        this.isRunning = false;
+        this.renderer.clearAll();
+        this.currentIndex = 0;
+        this.updateTimeline();
+        this.clearHighlight();
+        this.showControls(false);
+        this.setStatus('Ready to run');
     }
 
     clearAll() {
         this.renderer.clearAll();
+        this.commands = [];
+        this.scriptLines = [];
+        this.currentIndex = 0;
+        this.clearHighlight();
         this.setStatus('Cleared');
     }
 
@@ -137,134 +386,16 @@ class App {
         this.editor.insert(cmd);
     }
 
-    toggleFullscreen() {
-        const mapContainer = document.querySelector('.map-container');
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-        } else {
-            mapContainer.requestFullscreen();
-        }
-    }
-
-    takeScreenshot() {
-        const mapCanvas = this.renderer.map.getCanvas();
-        
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = mapCanvas.width;
-        tempCanvas.height = mapCanvas.height;
-        const ctx = tempCanvas.getContext('2d');
-        
-        ctx.drawImage(mapCanvas, 0, 0);
-        
-        const isSatellite = document.getElementById('styleSelect').value === 'satellite';
-        const text = isSatellite
-            ? '© NASA GIBS · Natural Earth'
-            : '© OpenFreeMap · Natural Earth';
-        
-        ctx.font = '14px Space Grotesk, sans-serif';
-        const textWidth = ctx.measureText(text).width;
-        const padding = 10;
-        const x = tempCanvas.width - textWidth - padding - 14;
-        const y = tempCanvas.height - 14;
-        
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.beginPath();
-        ctx.roundRect(x - padding, y - 16, textWidth + padding * 2, 24, 6);
-        ctx.fill();
-        
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(text, x, y);
-        
-        tempCanvas.toBlob(blob => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `pillars-of-creation-${Date.now()}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.setStatus('Screenshot saved!');
-            
-            setTimeout(() => this.setStatus('Ready'), 2000);
-        }, 'image/png');
-    }
-
-    startVideoRecording() {
-        const mapCanvas = this.renderer.map.getCanvas();
-
-        this.recordingCanvas = document.createElement('canvas');
-        this.recordingCanvas.width = mapCanvas.width;
-        this.recordingCanvas.height = mapCanvas.height;
-        this.recordingCtx = this.recordingCanvas.getContext('2d');
-
-        this.isRecording = true;
-        this.drawRecordingFrame();
-
-        const stream = this.recordingCanvas.captureStream(30);
-        this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-        this.recordedChunks = [];
-
-        this.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) this.recordedChunks.push(e.data);
-        };
-
-        this.mediaRecorder.onstop = () => {
-            this.isRecording = false;
-            const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'pillars-of-creation-map.webm';
-            a.click();
-            URL.revokeObjectURL(url);
-            this.setStatus('Video saved!');
-        };
-
-        this.mediaRecorder.start();
-        document.getElementById('recordBtn').style.display = 'none';
-        document.getElementById('stopBtn').style.display = 'inline-block';
-        this.setStatus('Recording...');
-    }
-
-    drawRecordingFrame() {
-        if (!this.isRecording) return;
-
-        const mapCanvas = this.renderer.map.getCanvas();
-        const ctx = this.recordingCtx;
-
-        ctx.drawImage(mapCanvas, 0, 0);
-
-        const isSatellite = document.getElementById('styleSelect').value === 'satellite';
-        const text = isSatellite
-            ? '© NASA GIBS · Natural Earth'
-            : '© OpenFreeMap · Natural Earth';
-
-        ctx.font = '12px Space Grotesk, sans-serif';
-        const textWidth = ctx.measureText(text).width;
-        const padding = 8;
-        const x = this.recordingCanvas.width - textWidth - padding - 12;
-        const y = this.recordingCanvas.height - 12;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.beginPath();
-        ctx.roundRect(x - padding, y - 14, textWidth + padding * 2, 20, 4);
-        ctx.fill();
-
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(text, x, y);
-
-        requestAnimationFrame(() => this.drawRecordingFrame());
-    }
-
-    stopVideoRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            this.mediaRecorder.stop();
-            document.getElementById('recordBtn').style.display = 'inline-block';
-            document.getElementById('stopBtn').style.display = 'none';
-            this.setStatus('Saving video...');
-        }
-    }
-
     setStatus(message) {
-        document.getElementById('status').textContent = message;
+        const el = document.getElementById('status');
+        if (el) el.textContent = message;
     }
 }
+
+const app = new App();
+app.init().catch(err => {
+    console.error('Failed to initialize:', err);
+    const el = document.getElementById('status');
+    if (el) el.textContent = 'Error: ' + err.message;
+});
+window.app = app;

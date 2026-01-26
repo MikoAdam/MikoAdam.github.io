@@ -17,12 +17,9 @@ class MapRenderer {
         this.showLabels = false;
         this.lineStartCountry = null;
         this.bubblePositions = [];
-        this.attackArrows = []; // Track attack arrows separately
+        this.attackArrows = [];
     }
 
-    /**
-     * Hide clutter layers from base map
-     */
     hideClutter() {
         const layersToHide = [
             'park', 'park_outline', 'landcover_wood', 'landcover_grass',
@@ -38,16 +35,60 @@ class MapRenderer {
         });
     }
 
+    adjustColorBrightness(hex, percent) {
+        if (!hex || !hex.startsWith('#')) return hex;
+        
+        let r = parseInt(hex.slice(1,3), 16);
+        let g = parseInt(hex.slice(3,5), 16);
+        let b = parseInt(hex.slice(5,7), 16);
+        
+        r = Math.max(0, Math.min(255, Math.round(r + (255 * percent / 100))));
+        g = Math.max(0, Math.min(255, Math.round(g + (255 * percent / 100))));
+        b = Math.max(0, Math.min(255, Math.round(b + (255 * percent / 100))));
+        
+        return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+    }
+
     /**
-     * Initialize map
+     * Create SVG pattern for proper 45-degree diagonal stripes
      */
+    createDiagonalPattern(id, color1, color2) {
+        if (!this.map.hasImage(id)) {
+            const size = 32;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background color
+            ctx.fillStyle = color2;
+            ctx.fillRect(0, 0, size, size);
+
+            // Diagonal stripes at 45 degrees
+            ctx.strokeStyle = color1;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'square';
+
+            for (let i = -size; i < size * 2; i += 8) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i + size, size);
+                ctx.stroke();
+            }
+
+            this.map.addImage(id, {
+                width: size,
+                height: size,
+                data: ctx.getImageData(0, 0, size, size).data
+            });
+        }
+    }
+
     async init() {
-        // Fetch the style and ensure no center/zoom is set
         let style;
         try {
             const response = await fetch(CONFIG.styles.liberty);
             style = await response.json();
-            // Remove any center/zoom from style
             delete style.center;
             delete style.zoom;
         } catch (e) {
@@ -77,9 +118,6 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Update label sizes based on zoom level
-     */
     updateLabelSizes() {
         const zoom = this.map.getZoom();
         const baseSize = Math.max(8, Math.min(14, zoom * 1.5));
@@ -89,9 +127,6 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Change map style
-     */
     setStyle(styleKey) {
         this.removeBorderLayer();
         this.removeLabelMarkers();
@@ -137,9 +172,6 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Update attribution text
-     */
     updateAttribution(type) {
         const el = document.querySelector('.map-attribution');
         if (type === 'satellite') {
@@ -149,13 +181,9 @@ class MapRenderer {
         }
     }
 
-    /**
-     * Setup hover interaction layers
-     */
     setupHoverLayers() {
         if (!this.geoData.countries) return;
 
-        // Store current view
         const currentCenter = this.map.getCenter();
         const currentZoom = this.map.getZoom();
 
@@ -185,10 +213,8 @@ class MapRenderer {
             });
         }
 
-        // Restore view after adding sources (prevent auto-zoom)
         this.map.jumpTo({ center: currentCenter, zoom: currentZoom });
 
-        // Hover popup
         const popup = new maplibregl.Popup({ 
             closeButton: false, 
             closeOnClick: false, 
@@ -207,9 +233,6 @@ class MapRenderer {
         this.map.on('mouseleave', 'hover-regions', () => popup.remove());
     }
 
-    /**
-     * Toggle border overlay (for satellite view)
-     */
     toggleBorders(show) {
         this.showBorders = show;
         if (show) this.addBorderLayer();
@@ -240,9 +263,6 @@ class MapRenderer {
         if (this.map.getSource('border-layer')) this.map.removeSource('border-layer');
     }
 
-    /**
-     * Toggle country name labels
-     */
     toggleLabels(show) {
         this.showLabels = show;
         if (show) this.addLabelMarkers();
@@ -276,70 +296,51 @@ class MapRenderer {
     }
 
     /**
-     * Create diagonal stripe pattern for disputed territories
-     */
-    createStripePattern(patternId, color) {
-        // This is a placeholder - MapLibre uses sprites for patterns
-        // The visual effect is achieved through multiple line layers instead
-    }
-
-    /**
-     * Draw a GeoJSON feature with color and animation
+     * Draw feature with proper diagonal stripes for occupied territories
      */
     drawFeature(feature, color, animation = 'none') {
         const id = 'layer-' + (++this.layerCounter);
 
         this.map.addSource(id, { type: 'geojson', data: feature });
         
-        // Check if this is a striped/disputed pattern
+        // DIAGONAL STRIPES for occupied territories (like Wikipedia military maps)
         if (animation === 'striped' || animation === 'disputed' || animation === 'occupied') {
-            // Create diagonal stripe pattern
-            const patternId = 'stripe-' + id;
-            this.createStripePattern(patternId, color);
+            const patternId = 'stripe-pattern-' + id;
+            const baseColor = color;
+            const stripeColor = this.adjustColorBrightness(color, -30);
             
-            // Semi-transparent fill as base
+            // Create the diagonal stripe pattern
+            this.createDiagonalPattern(patternId, stripeColor, baseColor);
+            
+            // Fill with pattern
             this.map.addLayer({
                 id: id + '-fill',
                 type: 'fill',
                 source: id,
                 paint: { 
-                    'fill-color': color, 
-                    'fill-opacity': 0.25
+                    'fill-pattern': patternId,
+                    'fill-opacity': 0.8
                 }
             });
             
-            // Dashed border to indicate disputed
+            // Bold dashed border
             this.map.addLayer({
                 id: id + '-line',
                 type: 'line',
                 source: id,
                 paint: { 
-                    'line-color': color, 
+                    'line-color': stripeColor, 
                     'line-width': 3,
                     'line-opacity': 1,
-                    'line-dasharray': [6, 4]
+                    'line-dasharray': [6, 3]
                 }
             });
             
-            // Add a second dashed line slightly offset for stripe effect
-            this.map.addLayer({
-                id: id + '-stripes',
-                type: 'line',
-                source: id,
-                paint: { 
-                    'line-color': color, 
-                    'line-width': 1.5,
-                    'line-opacity': 0.7,
-                    'line-dasharray': [2, 6],
-                    'line-offset': 5
-                }
-            });
-            
-            this.layers.push(id, id + '-fill', id + '-line', id + '-stripes');
+            this.layers.push(id, id + '-fill', id + '-line');
             return;
         }
         
-        // Fill layer
+        // Normal fills (for non-occupied)
         this.map.addLayer({
             id: id + '-fill',
             type: 'fill',
@@ -350,7 +351,6 @@ class MapRenderer {
             }
         });
 
-        // Border
         this.map.addLayer({
             id: id + '-line',
             type: 'line',
@@ -456,7 +456,6 @@ class MapRenderer {
             }, 30);
             
         } else {
-            // Instant
             setTimeout(() => {
                 this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0.7);
                 this.map.setPaintProperty(id + '-line', 'line-width', 4);
@@ -467,9 +466,6 @@ class MapRenderer {
         this.layers.push(id, id + '-fill', id + '-line');
     }
 
-    /**
-     * Draw line between two countries
-     */
     drawLine(fromFeature, toFeature, color) {
         const id = 'line-' + (++this.layerCounter);
         const fromCenter = this.geoData.getCenter(fromFeature.geometry, fromFeature.properties.NAME);
@@ -499,90 +495,174 @@ class MapRenderer {
     }
 
     /**
-     * Draw military-style attack arrow (DOM-based, with proper cleanup)
+     * Wikipedia-style thick curved attack arrow with outline
      */
     drawAttackArrow(fromFeature, toFeature, color) {
+        const id = 'attack-' + (++this.layerCounter);
         const fromCenter = this.geoData.getCenter(fromFeature.geometry, fromFeature.properties.NAME);
         const toCenter = this.geoData.getCenter(toFeature.geometry, toFeature.properties.NAME);
 
-        // Create arrow container
-        const arrowEl = document.createElement('div');
-        arrowEl.className = 'map-attack-arrow';
-        arrowEl.style.color = CONFIG.colors[color] || color || '#ef4444';
-
-        // Calculate distance and angle
-        const fromPixel = this.map.project(fromCenter);
-        const toPixel = this.map.project(toCenter);
-        const dx = toPixel.x - fromPixel.x;
-        const dy = toPixel.y - fromPixel.y;
+        // Calculate control point for curved arrow
+        const midX = (fromCenter[0] + toCenter[0]) / 2;
+        const midY = (fromCenter[1] + toCenter[1]) / 2;
+        const dx = toCenter[0] - fromCenter[0];
+        const dy = toCenter[1] - fromCenter[1];
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-        // Create line and arrowhead
-        arrowEl.innerHTML = `
-            <div class="map-attack-arrow-line" style="width: ${distance}px;"></div>
-            <div class="map-attack-arrow-head"></div>
-        `;
-
-        // Position and rotate
-        arrowEl.style.position = 'absolute';
-        arrowEl.style.left = fromPixel.x + 'px';
-        arrowEl.style.top = fromPixel.y + 'px';
-        arrowEl.style.transform = `rotate(${angle}deg)`;
-        arrowEl.style.transformOrigin = '0 50%';
-
-        // Add to map
-        document.getElementById('map').appendChild(arrowEl);
-
-        // Update position on map move/zoom
-        const updatePosition = () => {
-            if (!arrowEl.parentNode) return; // Check if still in DOM
-            
-            const newFromPixel = this.map.project(fromCenter);
-            const newToPixel = this.map.project(toCenter);
-            const newDx = newToPixel.x - newFromPixel.x;
-            const newDy = newToPixel.y - newFromPixel.y;
-            const newDistance = Math.sqrt(newDx * newDx + newDy * newDy);
-            const newAngle = Math.atan2(newDy, newDx) * (180 / Math.PI);
-
-            arrowEl.style.left = newFromPixel.x + 'px';
-            arrowEl.style.top = newFromPixel.y + 'px';
-            arrowEl.style.transform = `rotate(${newAngle}deg)`;
-            
-            const lineEl = arrowEl.querySelector('.map-attack-arrow-line');
-            if (lineEl) lineEl.style.width = newDistance + 'px';
-        };
-
-        this.map.on('move', updatePosition);
-        this.map.on('zoom', updatePosition);
-
-        // Store for cleanup with proper removal function
-        const arrowData = { 
-            element: arrowEl, 
-            updatePosition,
-            remove: () => {
-                if (arrowEl.parentNode) {
-                    arrowEl.remove();
-                }
-                this.map.off('move', updatePosition);
-                this.map.off('zoom', updatePosition);
-            }
-        };
         
-        this.attackArrows.push(arrowData);
+        const offset = distance * 0.15;
+        const perpX = -dy / distance * offset;
+        const perpY = dx / distance * offset;
+        const controlPoint = [midX + perpX, midY + perpY];
+
+        // Create smooth curve - BUT STOP BEFORE THE END for arrowhead
+        const curvePoints = [];
+        const steps = 60;
+        const stopBeforeEnd = 0.88; // Stop at 88% to leave room for arrowhead
+        
+        for (let i = 0; i <= steps * stopBeforeEnd; i++) {
+            const t = i / steps;
+            const x = Math.pow(1-t, 2) * fromCenter[0] + 2 * (1-t) * t * controlPoint[0] + Math.pow(t, 2) * toCenter[0];
+            const y = Math.pow(1-t, 2) * fromCenter[1] + 2 * (1-t) * t * controlPoint[1] + Math.pow(t, 2) * toCenter[1];
+            curvePoints.push([x, y]);
+        }
+
+        // Black outline (thicker)
+        this.map.addSource(id + '-outline', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: curvePoints
+                }
+            }
+        });
+
+        this.map.addLayer({
+            id: id + '-outline',
+            type: 'line',
+            source: id + '-outline',
+            paint: {
+                'line-color': '#000',
+                'line-width': 10,
+                'line-opacity': 0.7
+            }
+        });
+
+        // Main colored line
+        this.map.addSource(id, {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: curvePoints
+                }
+            }
+        });
+
+        this.map.addLayer({
+            id: id + '-line',
+            type: 'line',
+            source: id,
+            paint: {
+                'line-color': color,
+                'line-width': 7,
+                'line-opacity': 1
+            }
+        });
+
+        // Arrow head positioned AT THE END (not at line end)
+        const angle = Math.atan2(toCenter[1] - controlPoint[1], toCenter[0] - controlPoint[0]);
+        
+        const arrowSize = 0.35;
+        const arrowAngle = Math.PI / 5;
+        
+        const arrowPoints = [
+            toCenter, // Tip at actual target
+            [
+                toCenter[0] - arrowSize * Math.cos(angle - arrowAngle),
+                toCenter[1] - arrowSize * Math.sin(angle - arrowAngle)
+            ],
+            [
+                toCenter[0] - arrowSize * Math.cos(angle + arrowAngle),
+                toCenter[1] - arrowSize * Math.sin(angle + arrowAngle)
+            ],
+            toCenter
+        ];
+
+        // Arrowhead outline (black)
+        this.map.addSource(id + '-head-outline', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [arrowPoints]
+                }
+            }
+        });
+
+        this.map.addLayer({
+            id: id + '-head-outline',
+            type: 'fill',
+            source: id + '-head-outline',
+            paint: {
+                'fill-color': '#000',
+                'fill-opacity': 0.7
+            }
+        });
+
+        this.map.addLayer({
+            id: id + '-head-outline-line',
+            type: 'line',
+            source: id + '-head-outline',
+            paint: {
+                'line-color': '#000',
+                'line-width': 3,
+                'line-opacity': 0.7
+            }
+        });
+
+        // Arrowhead fill (colored) - slightly inset
+        const insetPoints = arrowPoints.map(p => [
+            p[0] + 0.01 * Math.cos(angle),
+            p[1] + 0.01 * Math.sin(angle)
+        ]);
+
+        this.map.addSource(id + '-head', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [insetPoints]
+                }
+            }
+        });
+
+        this.map.addLayer({
+            id: id + '-head',
+            type: 'fill',
+            source: id + '-head',
+            paint: {
+                'fill-color': color,
+                'fill-opacity': 1
+            }
+        });
+
+        this.layers.push(id, id + '-outline', id + '-line', id + '-head', id + '-head-outline', id + '-head-outline-line');
     }
 
-    /**
-     * Clear all attack arrows
-     */
     clearAttackArrows() {
-        this.attackArrows.forEach(arrow => arrow.remove());
-        this.attackArrows = [];
+        const attackLayers = this.layers.filter(l => l.startsWith('attack-'));
+        attackLayers.forEach(id => {
+            if (this.map.getLayer(id)) this.map.removeLayer(id);
+            if (this.map.getSource(id)) this.map.removeSource(id);
+        });
+        this.layers = this.layers.filter(l => !l.startsWith('attack-'));
     }
 
-    /**
-     * Set the fixed year overlay in upper left corner
-     */
     setYearOverlay(text, highlight = false) {
         const overlay = document.getElementById('yearOverlay');
         if (overlay) {
@@ -596,9 +676,6 @@ class MapRenderer {
         }
     }
 
-    /**
-     * Hide the year overlay
-     */
     hideYearOverlay() {
         const overlay = document.getElementById('yearOverlay');
         if (overlay) {
@@ -607,23 +684,33 @@ class MapRenderer {
         }
     }
 
-    /**
-     * Add a marker to the map
-     */
     addMarker(element, lngLat, anchor = 'center') {
-        // Validate coordinates
         if (isNaN(lngLat[0]) || isNaN(lngLat[1])) {
             console.error('Invalid coordinates for marker:', lngLat);
             return null;
         }
         
-        // For bubbles, check for overlaps
         if (element.classList.contains('map-bubble')) {
             const pixel = this.map.project(lngLat);
-            const bubbleWidth = 400;
+            const bubbleWidth = 420;
             const bubbleHeight = 80;
             
+            // Avoid year badge (top-left corner)
+            const yearBadgeArea = {
+                left: 0,
+                top: 0,
+                right: 300,
+                bottom: 100
+            };
+            
             let offsetY = 0;
+            
+            // Check if bubble would overlap year badge
+            if (pixel.x < yearBadgeArea.right && pixel.y < yearBadgeArea.bottom) {
+                offsetY = yearBadgeArea.bottom - pixel.y + 20;
+            }
+            
+            // Check for other bubble overlaps
             for (const pos of this.bubblePositions) {
                 const dx = Math.abs(pixel.x - pos.x);
                 const dy = Math.abs(pixel.y + offsetY - pos.y);
@@ -650,9 +737,6 @@ class MapRenderer {
         return marker;
     }
 
-    /**
-     * Remove the last added marker
-     */
     removeLastMarker() {
         if (this.lastMarker) {
             const element = this.lastMarker.getElement();
@@ -666,42 +750,31 @@ class MapRenderer {
         }
     }
 
-    /**
-     * Clear all drawn layers and markers
-     */
     clearAll() {
-        // Clear map layers
         this.layers.forEach(id => {
             if (this.map.getLayer(id)) this.map.removeLayer(id);
         });
 
         this.layers.forEach(id => {
-            if (!id.endsWith('-fill') && !id.endsWith('-line') && !id.endsWith('-stripes')) {
+            if (!id.endsWith('-fill') && !id.endsWith('-line') && !id.endsWith('-head')) {
                 if (this.map.getSource(id)) this.map.removeSource(id);
             }
         });
 
         this.layers = [];
         
-        // Clear markers
         this.markers.forEach(m => m.remove());
         this.markers = [];
         this.lastMarker = null;
         
-        // Clear attack arrows properly
-        this.attackArrows.forEach(arrow => arrow.remove());
-        this.attackArrows = [];
+        this.clearAttackArrows();
         
-        // Hide year overlay
         this.hideYearOverlay();
         
         this.lineStartCountry = null;
         this.bubblePositions = [];
     }
 
-    /**
-     * Standard fly-to animation
-     */
     flyTo(lat, lng, zoom) {
         this.map.flyTo({ 
             center: [lng, lat], 
@@ -712,23 +785,17 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Cinematic camera with 3D tilt and rotation (capped at reasonable values)
-     */
     cinematicFlyTo(lat, lng, zoom, pitch = 45, bearing = 0) {
         this.map.flyTo({ 
             center: [lng, lat], 
             zoom, 
-            pitch: Math.min(45, Math.max(0, pitch)), // Max 45 degree tilt
+            pitch: Math.min(45, Math.max(0, pitch)),
             bearing: bearing % 360,
             duration: 2000,
             essential: true
         });
     }
 
-    /**
-     * Zoom to fit a feature's bounds
-     */
     zoomToFeature(feature) {
         const bounds = this.geoData.getBounds(feature.geometry);
         this.map.fitBounds(bounds, { 
@@ -739,14 +806,10 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Query features at a point
-     */
     queryFeatures(point) {
         const regions = this.map.queryRenderedFeatures(point, { layers: ['hover-regions'] });
         const countries = this.map.queryRenderedFeatures(point, { layers: ['hover-countries'] });
         
-        // If we have a region, return it with country info attached
         if (regions.length) {
             const p = regions[0].properties;
             const countryName = countries.length ? (countries[0].properties.NAME || countries[0].properties.ADMIN) : (p.admin || p.ADMIN);
@@ -758,7 +821,6 @@ class MapRenderer {
             };
         }
 
-        // Just country
         if (countries.length) {
             const p = countries[0].properties;
             return { 
@@ -770,9 +832,6 @@ class MapRenderer {
         return null;
     }
 
-    /**
-     * Get current map state
-     */
     getZoom() {
         return this.map.getZoom();
     }
@@ -790,9 +849,6 @@ class MapRenderer {
         return { lat: center.lat, lng: center.lng };
     }
 
-    /**
-     * Register event handler
-     */
     on(event, handler) {
         this.map.on(event, handler);
     }

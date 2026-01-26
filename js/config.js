@@ -67,11 +67,31 @@ const CONFIG = {
         holland: 'netherlands'
     },
 
+    // Region name aliases (for special characters and alternate spellings)
+    regionAliases: {
+        // Azerbaijani regions - Karabakh conflict zones
+        // The 7 surrounding occupied districts:
+        'lachin': ['lacin', 'laçın', 'lachin'],
+        'kalbajar': ['kalbacar', 'kəlbəcər', 'kalbajar'],
+        'agdam': ['ağdam', 'agdam'],
+        'fuzuli': ['füzuli', 'fuzuli'],
+        'jabrayil': ['cabrayil', 'cəbrayıl', 'jabrayil'],
+        'zangilan': ['zəngilan', 'zangilan'],
+        'qubadli': ['qubadli', 'qubadlı'],
+        // Nagorno-Karabakh proper (the autonomous region):
+        'nagornokarabakh': ['nagorno-karabakh', 'nagorno karabakh', 'artsakh'],
+        'shusha': ['şuşa', 'shusha', 'shushi'],
+        'khojaly': ['xocalı', 'khojaly', 'xocali'],
+        'khojavend': ['xocavənd', 'khojavend', 'martuni'],
+        'hadrut': ['hadrut'],
+        'askeran': ['əsgəran', 'askeran'],
+        // Other regions:
+        'lankaran': ['lənkəran', 'lankaran', 'lenkeran']
+    },
+
     // Satellite imagery settings
     satellite: {
         tiles: 'https://gibs-a.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg',
         maxZoom: 8
     }
 };
-
-// Example scripts

@@ -1,6 +1,5 @@
 /**
- * Pillars of Creation Maps - Label Factory
- * Creates DOM elements for different label types
+ * LabelFactory - Creates DOM elements for map labels
  */
 
 class LabelFactory {
@@ -17,7 +16,7 @@ class LabelFactory {
     }
 
     /**
-     * Create bubble/callout label with colored border
+     * Create bubble/callout label
      */
     static createBubble(text, color) {
         const el = document.createElement('div');
@@ -27,37 +26,26 @@ class LabelFactory {
     }
 
     /**
-     * Create year badge (large, prominent)
+     * Create year badge
      */
     static createYear(text, highlight) {
         const el = document.createElement('div');
-        el.className = 'map-year' + (highlight ? ' highlight' : '');
+        el.className = 'map-year-overlay' + (highlight ? ' highlight' : '');
         el.textContent = text;
         return el;
     }
 
     /**
-     * Create arrow label with directional pointer
+     * Create arrow label with pointer
      */
     static createArrow(text, direction, color) {
         const el = document.createElement('div');
         el.className = 'map-arrow ' + (direction || 'right');
-        el.style.color = CONFIG.colors[color] || color || '#fff';
-        
+
         const borderColor = CONFIG.colors[color] || color || '#fff';
-        
-        if (direction === 'left') {
-            el.innerHTML = `
-                <div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>
-                <div class="map-arrow-pointer"></div>
-            `;
-        } else {
-            el.innerHTML = `
-                <div class="map-arrow-pointer"></div>
-                <div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>
-            `;
-        }
-        
+
+        el.innerHTML = `<div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>`;
+
         return el;
     }
 }

@@ -191,7 +191,40 @@ class GeoData {
         const n = this.normalize(name);
         const c = this.normalize(country);
         const ca = CONFIG.aliases[c] || c;
+        
+        // Get all possible name variants using regionAliases
+        let searchNames = [n];
+        if (CONFIG.regionAliases) {
+            for (const [ascii, variants] of Object.entries(CONFIG.regionAliases)) {
+                const allVariants = [...variants, ascii];
+                if (allVariants.some(v => v === n)) {
+                    searchNames = allVariants;
+                    break;
+                }
+            }
+        }
+        
+        // Try exact match with all variants
+        for (const searchName of searchNames) {
+            let result = this.regions.features.find(f => {
+                const props = f.properties;
+                const names = [props.name, props.NAME, props.name_en, props.woe_name]
+                    .filter(Boolean)
+                    .map(s => this.normalize(s));
+                const parents = [props.admin, props.ADMIN, props.sovereignt]
+                    .filter(Boolean)
+                    .map(s => this.normalize(s));
 
+                const nameMatch = names.some(x => x === searchName);
+                const parentMatch = parents.some(x => x === c || x === ca || x.includes(c));
+
+                return nameMatch && parentMatch;
+            });
+            
+            if (result) return result;
+        }
+        
+        // Fuzzy fallback
         let result = this.regions.features.find(f => {
             const props = f.properties;
             const names = [props.name, props.NAME, props.name_en, props.woe_name]
@@ -201,33 +234,16 @@ class GeoData {
                 .filter(Boolean)
                 .map(s => this.normalize(s));
 
-            const nameMatch = names.some(x => x === n);
+            const nameMatch = names.some(x => {
+                if (x === n) return true;
+                if (Math.abs(x.length - n.length) <= 3 && (x.includes(n) || n.includes(x))) return true;
+                return false;
+            });
             const parentMatch = parents.some(x => x === c || x === ca || x.includes(c));
 
             return nameMatch && parentMatch;
         });
-
-        if (!result) {
-            result = this.regions.features.find(f => {
-                const props = f.properties;
-                const names = [props.name, props.NAME, props.name_en, props.woe_name]
-                    .filter(Boolean)
-                    .map(s => this.normalize(s));
-                const parents = [props.admin, props.ADMIN, props.sovereignt]
-                    .filter(Boolean)
-                    .map(s => this.normalize(s));
-
-                const nameMatch = names.some(x => {
-                    if (x === n) return true;
-                    if (Math.abs(x.length - n.length) <= 3 && (x.includes(n) || n.includes(x))) return true;
-                    return false;
-                });
-                const parentMatch = parents.some(x => x === c || x === ca || x.includes(c));
-
-                return nameMatch && parentMatch;
-            });
-        }
-
+        
         return result;
     }
 

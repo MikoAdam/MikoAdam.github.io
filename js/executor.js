@@ -65,8 +65,7 @@ class ScriptExecutor {
             }
 
             case 'year': {
-                const el = LabelFactory.createYear(cmd.text, cmd.highlight);
-                this.renderer.addMarker(el, [cmd.lng, cmd.lat]);
+                this.renderer.setYearOverlay(cmd.text, cmd.highlight);
                 break;
             }
 
