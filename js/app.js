@@ -233,6 +233,12 @@ class App {
                 return;
             }
 
+            // Validate color names and show warnings
+            const warnings = this._validateColors(this.commands);
+            if (warnings.length > 0) {
+                this._showScriptWarnings(warnings);
+            }
+
             // Pass commands to executor for legendAuto
             this.executor.allCommands = this.commands;
 
@@ -596,6 +602,56 @@ class App {
             document.getElementById('stopRecordBtn').style.display = 'none';
             this.setStatus('Saving video...');
         }
+    }
+
+    // ─── Script validation ───
+
+    _validateColors(commands) {
+        const warnings = [];
+        const validColors = Object.keys(CONFIG.colors);
+        const countryColors = {}; // Track: each country can only be one color
+
+        commands.forEach((cmd, i) => {
+            // Check if color is valid (skip hex colors starting with #)
+            if (cmd.color && !cmd.color.startsWith('#') && !validColors.includes(cmd.color)) {
+                warnings.push({
+                    line: this.scriptLines[i],
+                    msg: `"${cmd.color}" is not a valid color. Available: ${validColors.slice(0, 8).join(', ')}...`
+                });
+            }
+
+            // Check duplicate country coloring
+            if (cmd.type === 'country') {
+                const name = cmd.name.toLowerCase();
+                if (countryColors[name] && countryColors[name] !== cmd.color) {
+                    warnings.push({
+                        line: this.scriptLines[i],
+                        msg: `"${cmd.name}" is already colored "${countryColors[name]}". A country can only show one color at a time.`
+                    });
+                }
+                countryColors[name] = cmd.color;
+            }
+        });
+
+        return warnings;
+    }
+
+    _showScriptWarnings(warnings) {
+        // Insert warnings as comments into the editor above the offending lines
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        // Process from bottom to top so line numbers don't shift
+        const sorted = [...warnings].sort((a, b) => b.line - a.line);
+        for (const w of sorted) {
+            if (w.line >= 0 && w.line < lines.length) {
+                lines.splice(w.line, 0, `# ⚠ WARNING: ${w.msg}`);
+            }
+        }
+        editor.value = lines.join('\n');
+
+        this.setStatus(`${warnings.length} warning(s) found — see editor`);
     }
 }
 

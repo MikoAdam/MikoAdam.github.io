@@ -1,176 +1,359 @@
-# 🌌 Pillars of Creation Maps
+# Pillars of Creation Maps
 
-**Create stunning animated map visualizations with simple text commands.**
+**Create animated geopolitical map visualizations with simple text commands.**
 
-Built for history storytellers, educators, and anyone who needs to explain the world through maps.
+Built for history storytellers, educators, journalists, and anyone who needs to explain the world through maps. Visualize wars, territorial changes, alliances, and historical events with professional military-grade symbology.
 
-🎬 **[Live Demo](#)** | 📖 **[Documentation](#)** | 🌟 **[GitHub](#)**
+**[Live Demo](https://mikoadam.github.io)** | **[Examples](#-examples)**
 
-## ✨ Features
+---
 
-- **🎬 Cinematic Camera** - Epic tilted 3D views with smooth panning
-- **🎨 Smart Animations** - Fade, radial, and sweep effects for countries
-- **🔗 Connection Lines** - Draw animated lines between countries
-- **💬 Rich Labels** - Bubbles, years, arrows with customizable colors
-- **🎥 Video Export** - Record animations directly to MP4
-- **📱 Dynamic Scaling** - Labels adjust automatically with zoom
-- **⚡ Lightning Fast** - LocalStorage caching for instant loads
-- **🆓 100% Free** - No limits, no watermarks, no signup
+## Features
 
-## 🚀 Quick Start
+- **Animated Country Coloring** — Pulse, fade, radial, sweep animations for countries and regions
+- **Occupied Territory Stripes** — Diagonal stripe pattern for disputed/occupied areas
+- **Attack Arrows** — Curved arrows with independent shaft width and head size, fully draggable with PowerPoint-style handles
+- **NATO APP-6 Map Effects** — 19 professional military symbols: explosions, battles, tanks, troops, nukes, and more
+- **Draggable Everything** — Effects, bubbles, labels, and arrows are all drag-and-drop repositionable
+- **Connection Lines** — Dashed lines between any two countries or coordinates
+- **Text Bubbles & Labels** — Rich text annotations with customizable colors and sizes
+- **Year Badge** — Prominent date overlay for timeline storytelling
+- **Legend** — Auto-generated or manual legend entries
+- **Cinematic Camera** — 3D tilted views with smooth pitch, bearing, and zoom transitions
+- **Smart Context Menu** — Right-click anywhere for quick access to all features; draggable so it never blocks your work
+- **Map Styles** — Switch between Liberty (vector) and NASA Satellite imagery
+- **Country coloring persists** across style switches
+- **Screenshot Export** — Composite screenshot including arrows, labels, year badge, and legend
+- **Video Recording** — Record animations directly to WebM
+- **Script Validation** — Warns about invalid color names and duplicate country colorings
+- **Middle Mouse Rotation** — Hold middle mouse button to tilt and rotate the map
+- **Keyboard Shortcuts** — Full keyboard support in the context menu
 
-### 1. Build the Data Files
+---
 
-```powershell
-# Install mapshaper (first time only)
+## Quick Start
+
+### Option 1: Use Online
+Visit the [live demo](https://mikoadam.github.io) — no installation needed.
+
+### Option 2: Self-Host
+
+```bash
+# Clone the repo
+git clone https://github.com/MikoAdam/MikoAdam.github.io.git
+cd MikoAdam.github.io
+
+# Build geographic data files (first time only)
 npm install -g mapshaper
-
-# Run the build script
 ./build.ps1
+
+# Serve locally or deploy to GitHub Pages
 ```
 
-### 2. Deploy to GitHub Pages
+---
 
-1. Push your repo to GitHub
-2. Go to Settings → Pages
-3. Source: `main` branch
-4. Your site: `https://yourusername.github.io/pillars-of-creation`
+## Usage
 
-## 📖 Usage Examples
+### Writing Scripts
 
-### Basic Country Coloring
+Write commands in the editor panel (left side). Each line is one command. Lines starting with `#` are comments.
+
+### Coloring Countries
+
 ```
-germany: blue, radial
+germany: blue, pulse
 france: green, sweep
-wait: 2s
+ukraine: yellow, radial
+russia: red, fade
 ```
 
-### Cinematic Camera Movement
+Animation types: `pulse`, `fade`, `radial`, `sweep`, `none`
+
+### Occupied Territories (Diagonal Stripes)
+
 ```
-cinematic: 52, 13, 8, 45, 90
-# lat, lng, zoom, pitch (tilt), bearing (rotation)
+region: Crimea, Ukraine, red, occupied
 ```
 
-### Draw Connections Between Countries
+### Coloring Regions
+
+```
+region: Bavaria, Germany, blue
+region: Crimea, Ukraine, red, occupied
+```
+
+### Attack Arrows
+
+```
+# Basic arrow
+attack: Germany, France, red
+
+# With curve and width
+attack: Germany, France, red, 0.30, 2
+
+# With separate head size (6th parameter)
+attack: Germany, France, red, 0.15, 1, 2.5
+
+# Coordinate-based (for ocean locations)
+attack: 52.5 13.4, 48.8 2.3, red
+```
+
+After placing an arrow, **click it** to select it. Drag the green (start), red (end), or yellow (curve) handles to reshape. Right-click a selected arrow to edit color, width, or delete it. Press `Delete` to remove.
+
+### Connection Lines
+
 ```
 line: Germany, France, blue
-line: USA, UK, red
+line: 52.5 13.4, 48.8 2.3, green
 ```
 
-### Complete Animation
+### Text Bubbles
+
 ```
-# Epic NATO Expansion
-cinematic: 50, -10, 3, 35, 45
-wait: 1s
-
-year: 40, -95, "1949", highlight
-usa: founding, radial
-uk: founding, radial
-
-wait: 2s
-bubble: 55, -15, "12 founding members unite", white
+bubble: 52.5, 13.4, "Berlin falls", red
 ```
 
-## 🎨 Animation Types
+### Arrow Labels
 
-- `fade` - Smooth opacity transition
-- `radial` - Expand from center
-- `sweep` - Circular reveal
-- `none` - Instant (default)
-
-## 🎬 Camera Commands
-
-- `fly: lat, lng, zoom` - Standard camera movement
-- `cinematic: lat, lng, zoom, pitch, bearing` - 3D tilted view
-- `zoom: CountryName` - Auto-fit to country bounds
-
-## 🎯 Right-Click Menu
-
-Right-click anywhere on the map for:
-- 🎨 Color this country/region
-- 🔗 Draw line from here
-- 💬 Add text bubble
-- 🎬 Set cinematic camera
-
-## 📊 Performance
-
-- **First load**: 2-3 seconds (optimized GeoJSON)
-- **Subsequent loads**: <100ms (localStorage cache)
-- **File sizes**: ~5MB total (simplified from 50MB)
-- **Offline capable**: Works after first visit
-
-## 🛠️ Tech Stack
-
-- MapLibre GL JS - Map rendering
-- Natural Earth - Geographic data
-- OpenFreeMap - Vector tiles
-- NASA GIBS - Satellite imagery
-
-## 📝 Full Command Reference
-
-### Country/Region Commands
 ```
-country: color, animation
-region: Name, Country, color, animation
-line: Country1, Country2, color
+arrow: 52.5, 13.4, "Advance", right
+arrow: 48.8, 2.3, "Retreat", left
 ```
 
-### Label Commands
+### Text Labels
+
 ```
-bubble: lat, lng, "text", color
-year: lat, lng, "2024", highlight
-arrow: lat, lng, "text", direction, color
+label: 52.5, 13.4, "Eastern Front", 18, white
 ```
+
+### Year Badge
+
+```
+year: "1939"
+year: "September 1, 1939", highlight
+```
+
+### Map Effects (NATO APP-6 Symbology)
+
+Place professional military symbols on the map:
+
+```
+# Basic effect
+effect: 52.5, 13.4, explosion, red
+
+# With custom size
+effect: 48.8, 2.3, tank, green, 2.0
+```
+
+**Combat symbols:** `explosion`, `battle`, `bombing`, `fire`, `skull`, `nuke`
+
+**Military units:** `tank`, `troops`, `plane`, `naval`
+
+**Resources:** `oil`, `factory`, `port`
+
+**Political:** `flag`, `capital`, `shield`, `treaty`, `uprising`, `occupation`
+
+All effects are draggable — click to select, drag to reposition, right-click to edit type/color/size.
 
 ### Camera Commands
-```
-fly: lat, lng, zoom
-cinematic: lat, lng, zoom, pitch, bearing
-zoom: CountryName
-```
 
-### Animation Commands
 ```
-wait: 2s          # pause
-wait: 500ms       # precise timing
-remove: last      # remove last label
+fly: 52.5, 13.4, 6
+cinematic: 52.5, 13.4, 6, 30, 45
+zoom: Germany
 ```
 
-## 🎨 Available Colors
+- `fly` — smooth pan to lat, lng, zoom
+- `cinematic` — dramatic 3D camera with pitch and bearing
+- `zoom` — auto-fit to country bounds
 
-Primary: `red`, `orange`, `yellow`, `green`, `blue`, `cyan`, `purple`, `pink`
+### Timing
 
-NATO Theme: `founding`, `southern`, `coldwar`, `expansion99`, `bigbang`, `balkans`, `nordic`
+```
+wait: 2s
+wait: 500ms
+```
 
-Utilities: `white`, `gold`, `maroon`, `coral`, `salmon`, `tan`, `brown`, `navy`, `lime`
+### Legend
 
-## 🌍 Examples
+```
+legend: "NATO Members", blue
+legend: "Warsaw Pact", red
+legend: auto
+legend: hide
+```
 
-Check the "Examples" tab in the app for:
-- NATO Expansion 1949-2024 (complete cinematic timeline)
-- More examples coming soon!
+### Cleanup
 
-## 💡 Pro Tips
+```
+remove: last
+remove: arrows
+remove: effects
+```
 
-1. **Use cinematic camera** for epic establishing shots
-2. **Combine animations** - radial for countries, sweep for regions
-3. **Dynamic labels** scale automatically with zoom
-4. **Lines are animated** with dashed patterns
-5. **Record in fullscreen** for best video quality
+---
 
-## ⚠️ Disputed Territories
+## Complete Example: WWII European Theater
 
-- ✅ Crimea shown as part of Ukraine (corrected from source)
-- Other disputed areas show de facto control per Natural Earth data
-- Kosovo, Northern Cyprus, Western Sahara, etc. as per source
+```
+# World War II - European Theater
+cinematic: 50, 10, 4, 20, 0
+wait: 1s
 
-## 🤝 Contributing
+year: "1939"
+germany: red, radial
+wait: 1s
 
-Found a bug? Have a feature request? Open an issue!
+# Invasion of Poland
+attack: Germany, Poland, red, 0.20, 1.5
+effect: 52.2, 21.0, explosion, red, 1.5
+wait: 2s
+poland: red, sweep
+
+year: "1940"
+wait: 1s
+
+# Western Front
+attack: Germany, France, red, 0.15, 1.5
+attack: Germany, Netherlands, red, 0.10
+attack: Germany, Belgium, red, 0.10
+effect: 48.8, 2.3, battle, red
+wait: 2s
+france: red, sweep
+netherlands: red, fade
+belgium: red, fade
+
+bubble: 48.8, 2.3, "Fall of France", red
+wait: 2s
+
+year: "1941"
+wait: 1s
+
+# Operation Barbarossa
+attack: Germany, Russia, red, 0.20, 2
+effect: 55.7, 37.6, explosion, red, 2
+bubble: 55.7, 37.6, "Operation Barbarossa", red
+wait: 2s
+
+year: "1944"
+wait: 1s
+
+# D-Day
+effect: 49.3, -0.8, battle, blue, 2
+attack: 49.3 -0.8, 48.8 2.3, blue, 0.15, 1.5
+bubble: 49.3, -0.8, "D-Day: June 6, 1944", blue
+
+legend: "Axis Powers", red
+legend: "Allied Forces", blue
+```
+
+---
+
+## Right-Click Context Menu
+
+Right-click anywhere on the map for quick access to:
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Color country | `Enter` | Color the country under cursor |
+| Color region | — | Color the specific region |
+| Attack arrow | `A` | Start a two-click attack arrow |
+| Connection line | `L` | Start a two-click connection line |
+| Text bubble | `B` | Add text annotation |
+| Arrow label | — | Add directional label |
+| Text label | — | Add plain text |
+| Fly here | `F` | Camera pan to location |
+| Cinematic | `C` | 3D camera to location |
+| Zoom to country | `Z` | Fit country in view |
+| Effects | click | Place military symbol |
+
+The context menu is **draggable** — grab the header to move it out of the way.
+
+---
+
+## Controls
+
+| Control | Action |
+|---------|--------|
+| **Right-click** | Open context menu |
+| **Middle mouse drag** | Tilt and rotate the map |
+| **Scroll wheel** | Zoom in/out |
+| **Left drag** | Pan the map |
+| **Click arrow** | Select for editing |
+| **Click effect** | Select for editing |
+| **Drag marker** | Reposition any placed element |
+| **Delete/Backspace** | Remove selected arrow or effect |
+| **Escape** | Deselect / cancel flow |
+
+---
+
+## Available Colors
+
+**Primary:** `red`, `orange`, `yellow`, `gold`, `green`, `blue`, `cyan`, `purple`, `pink`, `magenta`
+
+**NATO Theme:** `founding`, `southern`, `coldwar`, `expansion99`, `bigbang`, `balkans`, `nordic`
+
+**Utilities:** `white`, `maroon`, `coral`, `salmon`, `tan`, `brown`, `navy`, `lime`
+
+---
+
+## Full Command Reference
+
+| Command | Syntax | Example |
+|---------|--------|---------|
+| Country | `name: color, anim` | `germany: blue, pulse` |
+| Region | `region: Name, Country, color, occupied` | `region: Crimea, Ukraine, red, occupied` |
+| Attack | `attack: From, To, color, curve, width, headSize` | `attack: Germany, France, red, 0.15, 1, 2` |
+| Line | `line: From, To, color` | `line: Germany, France, blue` |
+| Bubble | `bubble: lat, lng, "text", color` | `bubble: 52, 13, "Berlin", blue` |
+| Arrow | `arrow: lat, lng, "text", dir` | `arrow: 52, 13, "East", right` |
+| Label | `label: lat, lng, "text", size, color` | `label: 52, 13, "Front", 18, white` |
+| Effect | `effect: lat, lng, name, color, size` | `effect: 52, 13, explosion, red, 1.5` |
+| Year | `year: "text", highlight` | `year: "1945", highlight` |
+| Legend | `legend: "label", color` | `legend: "NATO", blue` |
+| Fly | `fly: lat, lng, zoom` | `fly: 52, 13, 6` |
+| Cinematic | `cinematic: lat, lng, zoom, pitch, bearing` | `cinematic: 52, 13, 6, 30, 45` |
+| Zoom | `zoom: Country` | `zoom: Germany` |
+| Wait | `wait: duration` | `wait: 2s` |
+| Remove | `remove: last/arrows/effects` | `remove: arrows` |
+
+---
+
+## Tech Stack
+
+- **[MapLibre GL JS](https://maplibre.org)** — Map rendering engine
+- **[Natural Earth](https://naturalearthdata.com)** — Geographic boundary data (public domain)
+- **[OpenFreeMap](https://openfreemap.org)** — Vector tile hosting (MIT)
+- **[NASA GIBS](https://earthdata.nasa.gov/gibs)** — Satellite imagery (public domain)
+
+---
+
+## Performance
+
+- **First load:** 2-3 seconds (optimized GeoJSON)
+- **Subsequent loads:** <100ms (localStorage cache)
+- **File sizes:** ~5MB total (simplified from 50MB raw Natural Earth)
+- **Offline capable:** Works after first visit
+
+---
+
+## Disputed Territories
+
+- Crimea shown as part of Ukraine (corrected from source data)
+- Other disputed areas reflect de facto control per Natural Earth data
+- Kosovo, Northern Cyprus, Western Sahara shown as per source
+
+---
+
+## Contributing
+
+Found a bug? Have a feature request? [Open an issue](https://github.com/MikoAdam/MikoAdam.github.io/issues)!
 
 Want to add more examples? Submit a PR!
 
-## 📜 License
+---
+
+## License
 
 **100% Free for Commercial Use**
 
@@ -179,21 +362,14 @@ Want to add more examples? Submit a PR!
 - OpenFreeMap (MIT)
 - NASA GIBS (Public Domain)
 
-Attribution: "Maps powered by Pillars of Creation Maps · OpenFreeMap · Natural Earth"
-
-## 🎥 Made With This Tool
-
-Check out [Global Glasnost on YouTube](your-channel-here) to see Pillars of Creation Maps in action!
-
-## 💖 Support
-
-If this tool helps you create awesome content:
-
-- ⭐ Star this repo
-- 🐦 Share on social media
-- ☕ [Buy me a coffee](https://ko-fi.com/yourusername)
-- 💜 [GitHub Sponsors](https://github.com/sponsors/yourusername)
+Attribution: *Maps powered by Pillars of Creation Maps, OpenFreeMap, Natural Earth*
 
 ---
 
-**Built with 🌌 by [Your Name](your-site) for history storytellers everywhere**
+## Made With This Tool
+
+Check out [Global Glasnost on YouTube](https://youtube.com) to see Pillars of Creation Maps in action!
+
+---
+
+**Built for history storytellers everywhere.**

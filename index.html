@@ -116,65 +116,69 @@ zoom: Germany"></textarea>
                 <p><code>country name: color</code></p>
                 <p>Example: <code>germany: blue</code></p>
                 <p>With animation: <code>germany: blue, pulse</code></p>
+                <p>Animations: <code>pulse</code>, <code>fade</code>, <code>radial</code>, <code>sweep</code>, <code>none</code></p>
 
                 <h3>Coloring Regions</h3>
                 <p><code>region: Name, Country, color</code></p>
                 <p>Occupied: <code>region: Name, Country, color, occupied</code></p>
 
-                <h3>Text Bubble</h3>
-                <p><code>bubble: lat, lng, "text", color</code></p>
-
-                <h3>Year Badge</h3>
-                <p><code>year: "2024"</code></p>
-                <p>Highlight: <code>year: "2024", highlight</code></p>
-
-                <h3>Arrow Label</h3>
-                <p><code>arrow: lat, lng, "text", right</code></p>
-
-                <h3>Attack Arrow</h3>
-                <p><code>attack: Germany, France, red</code></p>
+                <h3>Attack Arrows</h3>
+                <p><code>attack: From, To, color</code></p>
+                <p>With curve: <code>attack: Germany, France, red, 0.30</code></p>
+                <p>With width: <code>attack: Germany, France, red, 0.15, 2</code></p>
+                <p>With head size: <code>attack: Germany, France, red, 0.15, 1, 2.5</code></p>
                 <p>Coordinates: <code>attack: 52.5 13.4, 48.8 2.3, red</code></p>
-                <p>Curve &amp; width: <code>attack: Germany, France, red, 0.30, 2</code></p>
-                <p>Head size: <code>attack: Germany, France, red, 0.15, 1, 2</code></p>
 
-                <h3>Connection Line</h3>
+                <h3>Connection Lines</h3>
                 <p><code>line: Germany, France, blue</code></p>
                 <p>Coordinates: <code>line: 52.5 13.4, 48.8 2.3, blue</code></p>
 
+                <h3>Map Effects (NATO Symbols)</h3>
+                <p><code>effect: lat, lng, name, color</code></p>
+                <p>With size: <code>effect: 52.5, 13.4, tank, green, 1.5</code></p>
+                <p>Combat: <code>explosion</code>, <code>battle</code>, <code>bombing</code>, <code>fire</code>, <code>skull</code>, <code>nuke</code></p>
+                <p>Military: <code>tank</code>, <code>troops</code>, <code>plane</code>, <code>naval</code></p>
+                <p>Resources: <code>oil</code>, <code>factory</code>, <code>port</code></p>
+                <p>Political: <code>flag</code>, <code>capital</code>, <code>shield</code>, <code>treaty</code>, <code>uprising</code>, <code>occupation</code></p>
+
+                <h3>Text &amp; Labels</h3>
+                <p>Bubble: <code>bubble: lat, lng, "text", color</code></p>
+                <p>Arrow label: <code>arrow: lat, lng, "text", right</code></p>
+                <p>Text label: <code>label: lat, lng, "text", 18, white</code></p>
+                <p>Year badge: <code>year: "1939", highlight</code></p>
+
                 <h3>Legend</h3>
                 <p><code>legend: "NATO Members", blue</code></p>
-                <p><code>legend: auto</code> - auto-generate from script</p>
-                <p><code>legend: hide</code> - hide legend</p>
+                <p><code>legend: auto</code> &mdash; auto-generate from script</p>
+                <p><code>legend: hide</code> &mdash; hide legend</p>
 
                 <h3>Camera</h3>
                 <p><code>fly: lat, lng, zoom</code></p>
                 <p><code>cinematic: lat, lng, zoom, pitch, bearing</code></p>
                 <p><code>zoom: Germany</code></p>
-                <p><code>wait: 2s</code></p>
-
-                <h3>Map Effects</h3>
-                <p><code>effect: lat, lng, name, color</code></p>
-                <p>Example: <code>effect: 52.5, 13.4, explosion, red</code></p>
-                <p>Combat: explosion, battle, bombing, fire, skull, nuke</p>
-                <p>Military: tank, troops, plane, naval</p>
-                <p>Resources: oil, factory, port</p>
-                <p>Political: flag, capital, shield, treaty, uprising, occupation</p>
-                <p>With size: <code>effect: 52.5, 13.4, tank, green, 1.5</code></p>
+                <p><code>wait: 2s</code> or <code>wait: 500ms</code></p>
 
                 <h3>Cleanup</h3>
-                <p><code>remove: last</code> - remove last label</p>
-                <p><code>remove: arrows</code> - remove all attack arrows</p>
-                <p><code>remove: effects</code> - remove all map effects</p>
+                <p><code>remove: last</code> &mdash; remove last marker</p>
+                <p><code>remove: arrows</code> &mdash; remove all attack arrows</p>
+                <p><code>remove: effects</code> &mdash; remove all map effects</p>
+
+                <h3>Controls</h3>
+                <p><strong>Right-click</strong> &mdash; Open context menu (drag header to move it)</p>
+                <p><strong>Middle mouse drag</strong> &mdash; Tilt and rotate the map</p>
+                <p><strong>Click arrow/effect</strong> &mdash; Select for editing</p>
+                <p><strong>Drag any marker</strong> &mdash; Reposition bubbles, labels, effects</p>
+                <p><strong>Delete</strong> &mdash; Remove selected arrow or effect</p>
+                <p><strong>Escape</strong> &mdash; Deselect or cancel current flow</p>
 
                 <h3>Tips</h3>
-                <p>Right-click map to color countries, add arrows, bubbles</p>
-                <p>Click an arrow to select it &mdash; drag the handles to reshape</p>
-                <p>Right-click a selected arrow to edit color, width, or delete</p>
-                <p>Arrows support both country names and coordinates (ocean clicks)</p>
-                <p>Press <code>Delete</code> to remove a selected arrow</p>
-                <p>Place effects (explosions, tanks, etc.) from the right-click menu</p>
-                <p>Use DVD controls to step through animations</p>
-                <p>Screenshots include year badge, legend, arrows, and labels</p>
+                <p>Effects use NATO APP-6 military symbols &mdash; professional map markers</p>
+                <p>Click an arrow to select, then drag green/red/yellow handles to reshape</p>
+                <p>All placed markers (bubbles, effects, labels) are draggable on the map</p>
+                <p>Country coloring persists when switching between Liberty and Satellite</p>
+                <p>Invalid color names are caught and warnings shown in the editor</p>
+                <p>Use DVD controls to step through animations frame by frame</p>
+                <p>Screenshots include all layers: arrows, labels, year badge, and legend</p>
             </div>
         </div>
 

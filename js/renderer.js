@@ -140,6 +140,44 @@ class MapRenderer {
         this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
         this.map.on('zoom', () => this.updateLabelSizes());
 
+        // Move pitch/rotate from right-click-drag to middle-mouse-drag
+        // Disable default right-click drag rotate
+        this.map.dragRotate.disable();
+
+        // Middle mouse button drag for pitch/rotate
+        let mmDragging = false, mmStartX = 0, mmStartY = 0, mmStartBearing = 0, mmStartPitch = 0;
+        const canvas = this.map.getCanvas();
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 1) { // middle mouse button
+                e.preventDefault();
+                mmDragging = true;
+                mmStartX = e.clientX;
+                mmStartY = e.clientY;
+                mmStartBearing = this.map.getBearing();
+                mmStartPitch = this.map.getPitch();
+                this.map.dragPan.disable();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!mmDragging) return;
+            const dx = e.clientX - mmStartX;
+            const dy = e.clientY - mmStartY;
+            this.map.setBearing(mmStartBearing + dx * 0.5);
+            this.map.setPitch(Math.max(0, Math.min(85, mmStartPitch - dy * 0.5)));
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (e.button === 1 && mmDragging) {
+                mmDragging = false;
+                this.map.dragPan.enable();
+            }
+        });
+
+        // Prevent middle-click scroll/paste behavior on the map canvas
+        canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
         return new Promise(resolve => {
             this.map.on('load', () => {
                 this.hideClutter();
@@ -181,7 +219,8 @@ class MapRenderer {
         const onStyleReady = () => {
             this.setupHoverLayers();
 
-            // Re-apply colored countries/regions
+            // Re-apply colored countries/regions (clear tracking first to avoid duplicates)
+            this._coloredFeatures = [];
             for (const { feature, color, animation } of savedFeatures) {
                 this.drawFeature(feature, color, animation === 'occupied' ? 'occupied' : 'none');
             }
@@ -1011,7 +1050,8 @@ class MapRenderer {
 
         // Effects get extra selection/edit behavior
         if (isEffect) {
-            element.addEventListener('mousedown', (e) => {
+            // Use click (not mousedown) for selection so it doesn't block drag
+            element.addEventListener('click', (e) => {
                 if (e.button === 0) {
                     e.stopPropagation();
                     this._selectEffect(marker);
@@ -1162,6 +1202,7 @@ class MapRenderer {
 
         this.lineStartCountry = null;
         this.bubblePositions = [];
+        this._coloredFeatures = [];
     }
 
     // ─── Camera ───
