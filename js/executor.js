@@ -36,19 +36,26 @@ class ScriptExecutor {
             }
 
             case 'line': {
-                const from = this.geoData.findCountry(cmd.from);
-                const to = this.geoData.findCountry(cmd.to);
-                if (from && to) {
-                    this.renderer.drawLine(from, to, color);
+                const fromF = typeof cmd.from === 'string' ? this.geoData.findCountry(cmd.from) : null;
+                const toF = typeof cmd.to === 'string' ? this.geoData.findCountry(cmd.to) : null;
+                if (fromF && toF) {
+                    this.renderer.drawLine(fromF, toF, color);
+                } else {
+                    // Coordinate-based: use canvas line (curve=0, no arrowhead)
+                    const coords = this._resolveEndpoints(cmd);
+                    if (coords) this.renderer.addArrow(coords.from, coords.to, color, 0, {}, 0.5);
                 }
                 break;
             }
 
             case 'attack': {
-                const from = this.geoData.findCountry(cmd.from);
-                const to = this.geoData.findCountry(cmd.to);
-                if (from && to) {
-                    this.renderer.drawAttackArrow(from, to, color);
+                const atkCoords = this._resolveEndpoints(cmd);
+                if (atkCoords) {
+                    this.renderer.addArrow(
+                        atkCoords.from, atkCoords.to, color,
+                        cmd.curve ?? 0.15, { fromName: atkCoords.fromName, toName: atkCoords.toName },
+                        cmd.width ?? 1, cmd.headSize ?? null
+                    );
                 }
                 break;
             }
@@ -77,6 +84,12 @@ class ScriptExecutor {
                 break;
             }
 
+            case 'effect': {
+                const el = EffectsLibrary.create(cmd.effect, cmd.color, cmd.size);
+                if (el) this.renderer.addMarker(el, [cmd.lng, cmd.lat]);
+                break;
+            }
+
             case 'remove': {
                 this.renderer.removeLastMarker();
                 break;
@@ -84,6 +97,11 @@ class ScriptExecutor {
 
             case 'removeArrows': {
                 this.renderer.clearAttackArrows();
+                break;
+            }
+
+            case 'removeEffects': {
+                this.renderer.removeEffects();
                 break;
             }
 
@@ -112,7 +130,53 @@ class ScriptExecutor {
                 await this.delay(cmd.ms);
                 break;
             }
+
+            case 'legend': {
+                const legendColor = CONFIG.colors[cmd.color] || cmd.color || '#3b82f6';
+                this.renderer.addLegendEntry(cmd.label, legendColor);
+                break;
+            }
+
+            case 'legendAuto': {
+                this.renderer.generateAutoLegend(this.allCommands || []);
+                break;
+            }
+
+            case 'legendHide': {
+                this.renderer.hideLegend();
+                break;
+            }
         }
+    }
+
+    /**
+     * Resolve from/to endpoints — each can be a string (country name)
+     * or {lat, lng} coordinates. Returns {from: [lng,lat], to: [lng,lat], fromName, toName}
+     */
+    _resolveEndpoints(cmd) {
+        let from, to, fromName, toName;
+
+        if (typeof cmd.from === 'string') {
+            const f = this.geoData.findCountry(cmd.from);
+            if (!f) return null;
+            fromName = cmd.from;
+            from = this.geoData.getCenter(f.geometry, f.properties.NAME);
+        } else {
+            from = [cmd.from.lng, cmd.from.lat];
+            fromName = `${cmd.from.lat.toFixed(1)}, ${cmd.from.lng.toFixed(1)}`;
+        }
+
+        if (typeof cmd.to === 'string') {
+            const f = this.geoData.findCountry(cmd.to);
+            if (!f) return null;
+            toName = cmd.to;
+            to = this.geoData.getCenter(f.geometry, f.properties.NAME);
+        } else {
+            to = [cmd.to.lng, cmd.to.lat];
+            toName = `${cmd.to.lat.toFixed(1)}, ${cmd.to.lng.toFixed(1)}`;
+        }
+
+        return { from, to, fromName, toName };
     }
 
     delay(ms) {

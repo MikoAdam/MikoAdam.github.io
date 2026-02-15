@@ -49,7 +49,7 @@ class LabelFactory {
 
         const borderColor = CONFIG.colors[color] || color || '#fff';
 
-        el.innerHTML = `<div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div>`;
+        el.innerHTML = `<div class="map-arrow-content" style="border-color: ${borderColor}">${text}</div><div class="map-arrow-pointer" style="color: ${borderColor}"></div>`;
 
         return el;
     }
