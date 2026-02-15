@@ -489,8 +489,10 @@ class ContextMenu {
         if (!sizeEl) return;
         const size = parseFloat(sizeEl.value);
         const scale = Math.max(0.5, Math.min(3, size));
-        el.style.setProperty('--fx-scale', scale);
-        el.style.transform = `scale(${scale})`;
+        // Scale via width/height — NEVER set transform (MapLibre Marker uses it for positioning)
+        const px = Math.round(48 * scale);
+        el.style.width = px + 'px';
+        el.style.height = px + 'px';
         el.dataset.effectSize = size;
     }
 

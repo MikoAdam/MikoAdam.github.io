@@ -984,35 +984,43 @@ main {
     max-height: 100px;
 }
 
-/* ─── Combat ─── */
+/* ─── Effect animations (on SVG only, never on .map-effect container) ─── */
+/* MapLibre Marker uses transform on .map-effect — never set transform there! */
 
-.fx-explosion { animation: fx-burst 0.5s ease-out forwards; }
-@keyframes fx-burst {
-    0%   { opacity: 0; transform: scale(0.2); }
-    50%  { opacity: 1; transform: scale(1.3); }
-    100% { opacity: 1; transform: scale(var(--fx-scale, 1)); }
-}
-
+.fx-explosion svg { animation: fx-burst 0.5s ease-out forwards; }
 .fx-battle svg { animation: fx-pulse 2s ease-in-out infinite; }
-.fx-bombing svg { animation: fx-drop 0.5s ease-out forwards; }
+.fx-bombing svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-fire svg { animation: fx-flicker 0.8s ease-in-out infinite alternate; }
 .fx-skull svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
 .fx-nuke svg { animation: fx-nuke-glow 3s ease-in-out infinite; }
+.fx-tank svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-troops svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-plane svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-naval svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-oil svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-factory svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-port svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-flag svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-capital svg { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-shield svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-treaty svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-uprising svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+.fx-occupation svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+
+@keyframes fx-burst {
+    0%   { opacity: 0; transform: scale(0.2); }
+    50%  { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 1; transform: scale(1); }
+}
 
 @keyframes fx-pulse {
     0%, 100% { opacity: 0.85; }
     50%      { opacity: 1; filter: brightness(1.2); }
 }
 
-@keyframes fx-drop {
-    0%   { transform: translateY(-30px); opacity: 0; }
-    80%  { transform: translateY(2px); opacity: 1; }
-    100% { transform: translateY(0); opacity: 1; }
-}
-
 @keyframes fx-flicker {
-    0%   { opacity: 0.8; transform: scale(var(--fx-scale, 1)); }
-    100% { opacity: 1;   transform: scale(calc(var(--fx-scale, 1) * 1.06)) rotate(2deg); }
+    0%   { opacity: 0.8; }
+    100% { opacity: 1; filter: brightness(1.1); }
 }
 
 @keyframes fx-fade-pulse {
@@ -1023,64 +1031,6 @@ main {
 @keyframes fx-nuke-glow {
     0%, 100% { filter: brightness(1) drop-shadow(0 1px 4px rgba(0,0,0,0.6)); }
     50%      { filter: brightness(1.4) drop-shadow(0 0 12px currentColor); }
-}
-
-/* ─── Military Units ─── */
-
-.fx-tank svg { animation: fx-slide 0.5s ease-out forwards; }
-.fx-troops svg { animation: fx-appear-unit 0.4s ease-out forwards; }
-.fx-plane svg { animation: fx-plane-bob 3s ease-in-out infinite; }
-.fx-naval svg { animation: fx-rock 4s ease-in-out infinite; }
-
-@keyframes fx-slide {
-    0%   { transform: translateX(-20px); opacity: 0; }
-    100% { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes fx-appear-unit {
-    0%   { opacity: 0; transform: scale(0.7); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes fx-plane-bob {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-4px); }
-}
-
-@keyframes fx-rock {
-    0%, 100% { transform: rotate(-2deg); }
-    50%      { transform: rotate(2deg); }
-}
-
-/* ─── Resources ─── */
-
-.fx-oil svg { animation: fx-pump 2s ease-in-out infinite; }
-.fx-factory svg { animation: fx-appear-unit 0.4s ease-out forwards; }
-.fx-port svg { animation: fx-appear-unit 0.4s ease-out forwards; }
-
-@keyframes fx-pump {
-    0%, 100% { transform: scaleY(1); }
-    50%      { transform: scaleY(0.95); }
-}
-
-/* ─── Political ─── */
-
-.fx-flag svg { animation: fx-flag-wave 1.5s ease-in-out infinite; }
-.fx-capital svg { animation: fx-pulse 2s ease-in-out infinite; }
-.fx-shield svg { animation: fx-appear-unit 0.4s ease-out forwards; }
-.fx-treaty svg { animation: fx-appear-unit 0.4s ease-out forwards; }
-.fx-uprising svg { animation: fx-shake 0.5s ease-in-out infinite; }
-.fx-occupation svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
-
-@keyframes fx-flag-wave {
-    0%, 100% { transform: scaleX(1); }
-    50%      { transform: scaleX(0.96); }
-}
-
-@keyframes fx-shake {
-    0%, 100% { transform: translateX(0); }
-    25%      { transform: translateX(-2px); }
-    75%      { transform: translateX(2px); }
 }
 
 /* ─── Effect Picker (context menu) ─── */
