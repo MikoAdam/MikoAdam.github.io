@@ -360,7 +360,7 @@ class App {
 
     // ─── Screenshot (composite) ───
 
-    takeScreenshot() {
+    async takeScreenshot() {
         const mapCanvas = this.renderer.map.getCanvas();
         const width = mapCanvas.width;
         const height = mapCanvas.height;
@@ -405,7 +405,53 @@ class App {
         });
         ctx.textAlign = 'left';
 
-        // 3. Bubbles (DOM markers)
+        // 3. Map symbols (DOM markers with SVG)
+        const symbolPromises = [];
+        document.querySelectorAll('.map-effect').forEach(effectEl => {
+            // Find the marker that owns this element
+            const marker = this.renderer.markers.find(m => m.getElement() === effectEl);
+            if (!marker) return;
+
+            const lngLat = marker.getLngLat();
+            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
+            const sx = screenPt.x * dpr;
+            const sy = screenPt.y * dpr;
+
+            const svgEl = effectEl.querySelector('svg');
+            if (!svgEl) return;
+
+            // Get the computed size of the effect element
+            const effectRect = effectEl.getBoundingClientRect();
+            const ew = effectRect.width * dpr;
+            const eh = effectRect.height * dpr;
+
+            // Serialize SVG with the current color applied
+            const color = getComputedStyle(effectEl).color || '#ef4444';
+            const svgClone = svgEl.cloneNode(true);
+            svgClone.setAttribute('width', ew);
+            svgClone.setAttribute('height', eh);
+            // Replace currentColor with the actual color
+            const svgStr = new XMLSerializer().serializeToString(svgClone).replace(/currentColor/g, color);
+            const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+
+            const p = new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, sx - ew / 2, sy - eh / 2, ew, eh);
+                    URL.revokeObjectURL(url);
+                    resolve();
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+                img.src = url;
+            });
+            symbolPromises.push(p);
+        });
+
+        // Wait for all symbol images to load and draw
+        await Promise.all(symbolPromises);
+
+        // 4. Bubbles (DOM markers)
         document.querySelectorAll('.map-bubble').forEach(bubble => {
             const rect = bubble.getBoundingClientRect();
             const bx = (rect.left - mapRect.left) * dpr;

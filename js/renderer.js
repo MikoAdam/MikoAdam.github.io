@@ -138,7 +138,11 @@ class MapRenderer {
         });
 
         this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
-        this.map.on('zoom', () => this.updateLabelSizes());
+        this.map.on('zoom', () => {
+            this.updateLabelSizes();
+            this.updateSymbolSizes();
+        });
+        this._baseZoom = 3; // Reference zoom level for symbol sizing
 
         // Move pitch/rotate from right-click-drag to middle-mouse-drag
         // Disable default right-click drag rotate
@@ -184,6 +188,29 @@ class MapRenderer {
                 this.setupHoverLayers();
                 resolve();
             });
+        });
+    }
+
+    /**
+     * Compensate symbol sizes for zoom level.
+     * Symbols at fixed screen size look disproportionately huge when zoomed out.
+     * This gently scales them down when zoomed out, up when zoomed in.
+     */
+    updateSymbolSizes() {
+        const zoom = this.map.getZoom();
+        // At reference zoom (4), symbols are at their base size
+        // Each zoom level doubles/halves map scale, so we do a gentler factor
+        const factor = Math.pow(2, (zoom - 4) * 0.25); // 0.25 = quarter-strength
+        const clamped = Math.max(0.4, Math.min(2.0, factor));
+
+        this.markers.forEach(m => {
+            const el = m.getElement();
+            if (!el || !el.classList.contains('map-effect')) return;
+            const baseSize = parseFloat(el.dataset.effectSize) || 1;
+            const scale = Math.max(0.5, Math.min(3, baseSize));
+            const px = Math.round(48 * scale * clamped);
+            el.style.width = px + 'px';
+            el.style.height = px + 'px';
         });
     }
 

@@ -944,7 +944,7 @@ main {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MAP EFFECTS (Professional SVG symbols)
+   MAP SYMBOLS (Professional SVG symbols)
    ═══════════════════════════════════════════════════════════════ */
 
 .map-effect {
@@ -984,7 +984,7 @@ main {
     max-height: 100px;
 }
 
-/* ─── Effect animations (on SVG only, never on .map-effect container) ─── */
+/* ─── Symbol animations (on SVG only, never on .map-effect container) ─── */
 /* MapLibre Marker uses transform on .map-effect — never set transform there! */
 
 .fx-explosion svg { animation: fx-burst 0.5s ease-out forwards; }
@@ -1033,7 +1033,7 @@ main {
     50%      { filter: brightness(1.4) drop-shadow(0 0 12px currentColor); }
 }
 
-/* ─── Effect Picker (context menu) ─── */
+/* ─── Symbol Picker (context menu) ─── */
 
 .fx-inline-picker {
     padding: 2px 10px 4px;

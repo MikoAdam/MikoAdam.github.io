@@ -133,7 +133,7 @@ zoom: Germany"></textarea>
                 <p><code>line: Germany, France, blue</code></p>
                 <p>Coordinates: <code>line: 52.5 13.4, 48.8 2.3, blue</code></p>
 
-                <h3>Map Effects (NATO Symbols)</h3>
+                <h3>Map Symbols</h3>
                 <p><code>effect: lat, lng, name, color</code></p>
                 <p>With size: <code>effect: 52.5, 13.4, tank, green, 1.5</code></p>
                 <p>Combat: <code>explosion</code>, <code>battle</code>, <code>bombing</code>, <code>fire</code>, <code>skull</code>, <code>nuke</code></p>
@@ -161,24 +161,24 @@ zoom: Germany"></textarea>
                 <h3>Cleanup</h3>
                 <p><code>remove: last</code> &mdash; remove last marker</p>
                 <p><code>remove: arrows</code> &mdash; remove all attack arrows</p>
-                <p><code>remove: effects</code> &mdash; remove all map effects</p>
+                <p><code>remove: effects</code> &mdash; remove all map symbols</p>
 
                 <h3>Controls</h3>
                 <p><strong>Right-click</strong> &mdash; Open context menu (drag header to move it)</p>
                 <p><strong>Middle mouse drag</strong> &mdash; Tilt and rotate the map</p>
-                <p><strong>Click arrow/effect</strong> &mdash; Select for editing</p>
-                <p><strong>Drag any marker</strong> &mdash; Reposition bubbles, labels, effects</p>
-                <p><strong>Delete</strong> &mdash; Remove selected arrow or effect</p>
+                <p><strong>Click arrow/symbol</strong> &mdash; Select for editing</p>
+                <p><strong>Drag any marker</strong> &mdash; Reposition bubbles, labels, symbols</p>
+                <p><strong>Delete</strong> &mdash; Remove selected arrow or symbol</p>
                 <p><strong>Escape</strong> &mdash; Deselect or cancel current flow</p>
 
                 <h3>Tips</h3>
-                <p>Effects use NATO APP-6 military symbols &mdash; professional map markers</p>
+                <p>Symbols use professional military-grade iconography</p>
                 <p>Click an arrow to select, then drag green/red/yellow handles to reshape</p>
-                <p>All placed markers (bubbles, effects, labels) are draggable on the map</p>
+                <p>All placed markers (bubbles, symbols, labels) are draggable on the map</p>
                 <p>Country coloring persists when switching between Liberty and Satellite</p>
                 <p>Invalid color names are caught and warnings shown in the editor</p>
                 <p>Use DVD controls to step through animations frame by frame</p>
-                <p>Screenshots include all layers: arrows, labels, year badge, and legend</p>
+                <p>Screenshots include all layers: arrows, labels, symbols, year badge, and legend</p>
             </div>
         </div>
 
@@ -252,19 +252,16 @@ zoom: Germany"></textarea>
     <!-- ═══ NORMAL MODE ═══ -->
     <div class="ctx-section-normal">
 
-        <!-- Default Action -->
-        <div class="context-menu-item ctx-default-action" data-action="defaultAction">
-            <span class="icon">&#9733;</span>
-            <span class="ctx-default-label">Color this</span>
+        <!-- Territory — only one shows at a time (region if available, else country) -->
+        <div class="context-menu-item ctx-default-action" id="menuColorRegion" data-action="addRegion" style="display:none">
+            <span class="icon">&#9638;</span>
+            <span id="regionLabel">Color region</span>
             <span class="ctx-shortcut">Enter</span>
         </div>
-
-        <!-- Territory -->
-        <div class="context-menu-item" id="menuColorRegion" data-action="addRegion" style="display:none">
-            <span class="icon">&#9638;</span> <span id="regionLabel">Color region</span>
-        </div>
-        <div class="context-menu-item ctx-needs-feature" id="menuColorCountry" data-action="addCountry">
-            <span class="icon">&#9632;</span> <span id="countryLabel">Color country</span>
+        <div class="context-menu-item ctx-default-action ctx-needs-feature" id="menuColorCountry" data-action="addCountry">
+            <span class="icon">&#9632;</span>
+            <span id="countryLabel">Color country</span>
+            <span class="ctx-shortcut">Enter</span>
         </div>
 
         <div class="context-menu-divider"></div>
@@ -364,13 +361,13 @@ zoom: Germany"></textarea>
 
         <div class="context-menu-divider"></div>
 
-        <!-- Effects -->
+        <!-- Symbols -->
         <div class="context-menu-section" style="display:flex;align-items:center;justify-content:space-between">
-            Effects <span style="color:#555;font-weight:400;font-size:8px">(click to place)</span>
+            Symbols <span style="color:#555;font-weight:400;font-size:8px">(click to place)</span>
             <span class="ctx-more-btn" data-panel="effectsOpts" style="width:auto;padding:1px 6px;font-size:9px;gap:3px">Size &#9662;</span>
         </div>
         <div class="ctx-options" id="effectsOpts">
-            <div class="ctx-opt-label">Effect size</div>
+            <div class="ctx-opt-label">Symbol size</div>
             <div class="ctx-range-row">
                 <input type="range" class="ctx-range" id="effectSizeRange" min="0.5" max="3" step="0.25" value="1.5">
                 <span class="ctx-range-value">1.50</span>
@@ -423,7 +420,7 @@ zoom: Germany"></textarea>
         </div>
         <div class="ctx-compact-row">
             <div class="context-menu-item ctx-compact" data-action="removeEffects">
-                <span class="icon">&#10005;</span> Clear effects
+                <span class="icon">&#10005;</span> Clear symbols
             </div>
         </div>
     </div>
@@ -457,7 +454,7 @@ zoom: Germany"></textarea>
         </div>
     </div>
 
-    <!-- ═══ EFFECT EDIT MODE ═══ -->
+    <!-- ═══ SYMBOL EDIT MODE ═══ -->
     <div class="ctx-section-effect-edit" style="display:none">
         <div class="ctx-options open" style="display:block">
             <div class="ctx-opt-label">Change type</div>
@@ -469,7 +466,7 @@ zoom: Germany"></textarea>
             </div>
         </div>
         <div class="context-menu-item context-menu-item-subtle" data-action="deleteEffect">
-            <span class="icon">&#128465;</span> Delete effect
+            <span class="icon">&#128465;</span> Delete symbol
             <span class="ctx-shortcut">Del</span>
         </div>
     </div>

@@ -306,9 +306,9 @@ class ContextMenu {
         // Title
         if (effectMarker && !this._flowType) {
             const el = effectMarker.getElement();
-            const name = el.dataset.effectName || 'effect';
+            const name = el.dataset.effectName || 'symbol';
             const def = EffectsLibrary.EFFECTS[name];
-            this.titleElement.textContent = `Effect: ${def ? def.label : name}`;
+            this.titleElement.textContent = `Symbol: ${def ? def.label : name}`;
         } else if (arrowHit && !this._flowType) {
             const a = arrowHit.arrow;
             const fromLabel = a.meta?.fromName || 'start';
@@ -334,9 +334,14 @@ class ContextMenu {
         this._setVisible('.ctx-section-flow', inFlow);
         this._setVisible('.ctx-section-arrow-edit', editingArrow);
         this._setVisible('.ctx-section-effect-edit', editingEffect);
+
+        // Region vs Country: show one or the other, never both (eliminates redundancy)
         this._setVisible('#menuColorRegion', isRegion && !inFlow && !editingArrow && !editingEffect);
+        this._setVisible('#menuColorCountry', hasFeature && !isRegion && !inFlow && !editingArrow && !editingEffect);
 
         this.element.querySelectorAll('.ctx-needs-feature').forEach(el => {
+            // Skip #menuColorCountry — already handled above
+            if (el.id === 'menuColorCountry') return;
             el.style.display = hasFeature ? '' : 'none';
         });
 
@@ -351,8 +356,7 @@ class ContextMenu {
             countryLabel.textContent = cName ? `Color ${cName}` : 'Color country';
         }
 
-        // Default action label
-        this._updateDefaultLabel();
+        // Update region/country labels with actual names
 
         // Flow completion label
         if (inFlow) {
@@ -463,7 +467,6 @@ class ContextMenu {
         this.selectedColor = name;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         if (swatch) swatch.classList.add('selected');
-        this._updateDefaultLabel();
         // Auto-apply color change when editing an existing arrow
         if (this._selectedArrow) {
             this._autoApplyArrowEdit();
@@ -488,12 +491,14 @@ class ContextMenu {
         const sizeEl = document.getElementById('editEffectSize');
         if (!sizeEl) return;
         const size = parseFloat(sizeEl.value);
+        el.dataset.effectSize = size;
+        // Apply zoom-compensated size (same formula as renderer.updateSymbolSizes)
         const scale = Math.max(0.5, Math.min(3, size));
-        // Scale via width/height — NEVER set transform (MapLibre Marker uses it for positioning)
-        const px = Math.round(48 * scale);
+        const zoom = this.app.renderer.map.getZoom();
+        const zoomFactor = Math.max(0.4, Math.min(2.0, Math.pow(2, (zoom - 4) * 0.25)));
+        const px = Math.round(48 * scale * zoomFactor);
         el.style.width = px + 'px';
         el.style.height = px + 'px';
-        el.dataset.effectSize = size;
     }
 
     selectAnimation(anim) {
@@ -501,7 +506,6 @@ class ContextMenu {
         document.querySelectorAll('.anim-pill').forEach(p => p.classList.remove('selected'));
         const pill = document.querySelector(`.anim-pill[data-anim="${anim}"]`);
         if (pill) pill.classList.add('selected');
-        this._updateDefaultLabel();
     }
 
     // ─── Default Action ───
@@ -512,7 +516,11 @@ class ContextMenu {
             return;
         }
         if (this.selectedFeature) {
-            this.addCountry();
+            if (this.selectedFeature.type === 'region') {
+                this.addRegion();
+            } else {
+                this.addCountry();
+            }
         } else {
             this.toggleOptionsPanel('bubbleOpts');
         }
@@ -814,7 +822,7 @@ class ContextMenu {
             this._selectedEffectMarker = newMarker;
             // Update title
             const def = EffectsLibrary.EFFECTS[newType];
-            this.titleElement.textContent = `Effect: ${def ? def.label : newType}`;
+            this.titleElement.textContent = `Symbol: ${def ? def.label : newType}`;
         }
     }
 
@@ -940,22 +948,4 @@ class ContextMenu {
         return this.app.geoData.getCenter(f.geometry, f.properties.NAME);
     }
 
-    _updateDefaultLabel() {
-        const el = this.element.querySelector('.ctx-default-label');
-        if (!el) return;
-        if (this._flowType) return;
-
-        if (this.selectedFeature) {
-            const name = this.selectedFeature.type === 'region'
-                ? this.selectedFeature.country
-                : this.selectedFeature.name;
-            if (this.selectedAnimation === 'occupied') {
-                el.textContent = `Occupy ${name}`;
-            } else {
-                el.textContent = `Color ${name}`;
-            }
-        } else {
-            el.textContent = 'Add bubble here';
-        }
-    }
 }
