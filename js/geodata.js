@@ -25,7 +25,8 @@ class GeoData {
 
     async load() {
         const cacheKey = 'poc-maps-geodata-v3';
-        
+
+        // Try cache first
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             try {
@@ -41,59 +42,70 @@ class GeoData {
             }
         }
 
-        const timeout = (ms) => new Promise((_, reject) => 
+        // Retry with exponential backoff
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`GeoData: Loading (attempt ${attempt})...`);
+                const [countries, regions] = await this.fetchWithFallback();
+                this.countries = countries;
+                this.regions = regions;
+                this.fixDisputedTerritories();
+                this.cacheData(cacheKey);
+                return;
+            } catch (err) {
+                if (attempt < maxRetries) {
+                    const delay = 1000 * Math.pow(2, attempt - 1);
+                    console.warn(`Load attempt ${attempt} failed, retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                } else {
+                    throw new Error('Failed to load map data after ' + maxRetries + ' attempts');
+                }
+            }
+        }
+    }
+
+    async fetchWithFallback() {
+        const timeout = (ms) => new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Timeout')), ms)
         );
 
+        // Try local files first
         try {
-            console.log('GeoData: Loading from files...');
-            
-            let countriesRes, regionsRes;
-            
-            try {
-                [countriesRes, regionsRes] = await Promise.race([
-                    Promise.all([
-                        fetch(CONFIG.data.countries),
-                        fetch(CONFIG.data.regions)
-                    ]),
-                    timeout(5000)
-                ]);
-                
-                if (!countriesRes.ok || !regionsRes.ok) {
-                    throw new Error('Local files not found');
-                }
-            } catch (localError) {
-                console.log('GeoData: Using GitHub fallback...');
-                [countriesRes, regionsRes] = await Promise.race([
-                    Promise.all([
-                        fetch(CONFIG.data.countriesFallback),
-                        fetch(CONFIG.data.regionsFallback)
-                    ]),
-                    timeout(30000)
-                ]);
-            }
+            const [cr, rr] = await Promise.race([
+                Promise.all([fetch(CONFIG.data.countries), fetch(CONFIG.data.regions)]),
+                timeout(5000)
+            ]);
+            if (!cr.ok || !rr.ok) throw new Error('Local files not available');
+            return [await cr.json(), await rr.json()];
+        } catch (localError) {
+            console.log('GeoData: Local files unavailable, using GitHub fallback...');
+        }
 
-            this.countries = await countriesRes.json();
-            this.regions = await regionsRes.json();
-            
-            this.fixDisputedTerritories();
+        // Fallback to GitHub
+        const [cr, rr] = await Promise.race([
+            Promise.all([
+                fetch(CONFIG.data.countriesFallback),
+                fetch(CONFIG.data.regionsFallback)
+            ]),
+            timeout(30000)
+        ]);
+        if (!cr.ok || !rr.ok) throw new Error('GitHub fallback failed');
+        return [await cr.json(), await rr.json()];
+    }
 
-            try {
-                const cacheData = JSON.stringify({
-                    countries: this.countries,
-                    regions: this.regions
-                });
-                
-                if (cacheData.length < 5 * 1024 * 1024) {
-                    localStorage.setItem(cacheKey, cacheData);
-                    console.log('GeoData: Cached for next visit');
-                }
-            } catch (e) {
-                console.warn('Could not cache:', e.message);
+    cacheData(cacheKey) {
+        try {
+            const cacheData = JSON.stringify({
+                countries: this.countries,
+                regions: this.regions
+            });
+            if (cacheData.length < 5 * 1024 * 1024) {
+                localStorage.setItem(cacheKey, cacheData);
+                console.log('GeoData: Cached for next visit');
             }
-        } catch (err) {
-            console.error('Failed to load geodata:', err);
-            throw err;
+        } catch (e) {
+            console.warn('Could not cache:', e.message);
         }
     }
 
@@ -155,26 +167,22 @@ class GeoData {
         const normalized = this.normalize(name);
         const search = CONFIG.aliases[normalized] || normalized;
 
-        // Exact match on NAME
-        let result = this.countries.features.find(f => 
+        let result = this.countries.features.find(f =>
             this.normalize(f.properties.NAME) === search
         );
 
-        // Exact match on ADMIN
         if (!result) {
-            result = this.countries.features.find(f => 
+            result = this.countries.features.find(f =>
                 this.normalize(f.properties.ADMIN) === search
             );
         }
 
-        // NAME_LONG
         if (!result) {
-            result = this.countries.features.find(f => 
+            result = this.countries.features.find(f =>
                 f.properties.NAME_LONG && this.normalize(f.properties.NAME_LONG) === search
             );
         }
 
-        // Fuzzy
         if (!result) {
             result = this.countries.features.find(f => {
                 const n = this.normalize(f.properties.NAME);
@@ -191,8 +199,7 @@ class GeoData {
         const n = this.normalize(name);
         const c = this.normalize(country);
         const ca = CONFIG.aliases[c] || c;
-        
-        // Get all possible name variants using regionAliases
+
         let searchNames = [n];
         if (CONFIG.regionAliases) {
             for (const [ascii, variants] of Object.entries(CONFIG.regionAliases)) {
@@ -203,8 +210,7 @@ class GeoData {
                 }
             }
         }
-        
-        // Try exact match with all variants
+
         for (const searchName of searchNames) {
             let result = this.regions.features.find(f => {
                 const props = f.properties;
@@ -220,11 +226,10 @@ class GeoData {
 
                 return nameMatch && parentMatch;
             });
-            
+
             if (result) return result;
         }
-        
-        // Fuzzy fallback
+
         let result = this.regions.features.find(f => {
             const props = f.properties;
             const names = [props.name, props.NAME, props.name_en, props.woe_name]
@@ -243,7 +248,7 @@ class GeoData {
 
             return nameMatch && parentMatch;
         });
-        
+
         return result;
     }
 
