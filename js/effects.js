@@ -23,7 +23,7 @@ class EffectsLibrary {
             label: 'Battle',
             cls: 'fx-battle',
             category: 'combat',
-            svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11z"/><path d="M5 13l6 6"/><path d="M3 21l3.68 -3.68l3 3l-3.68 3.68z"/><path d="M14.32 17.32l3.68 3.68l3 -3l-3.68 -3.68"/><path d="M10 5.5l-2 -2.5h-5v5l3 2.5"/><path d="M13 10.5l2 2.5h5v-5l-3 -2.5"/></svg>`
+            svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11l5 0"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68l3 -3l-3.365 -3.365"/><path d="M10 5.5l-2 -2.5h-5v5l3 2.5"/></svg>`
         },
         bombing: {
             label: 'Airstrike',
@@ -61,7 +61,7 @@ class EffectsLibrary {
             label: 'Infantry',
             cls: 'fx-troops',
             category: 'military',
-            svg: `<svg viewBox="0 0 64 64" fill="currentColor"><ellipse cx="32" cy="26" rx="22" ry="16"/><rect x="8" y="28" width="48" height="6" rx="2"/></svg>`
+            svg: `<svg viewBox="0 0 320 512" fill="currentColor"><path d="M160 0a80 80 0 1 1 0 160A80 80 0 1 1 160 0zM46.5 198.1c-4.2-1.4-8.7-2.1-13.2-2.1C14.9 196 0 210.9 0 229.3V304c0 17.7 14.3 32 32 32H64l.7 8.6 12.5 152c1.3 15.8 14.6 27.4 30.5 27.4h104.6c15.9 0 29.1-11.6 30.5-27.4l12.5-152 .7-8.6h32c17.7 0 32-14.3 32-32V229.3c0-18.4-14.9-33.3-33.3-33.3c-4.5 0-9 .7-13.2 2.1l-74.5 24.8c-14.6 4.9-30.5 4.9-45.1 0L46.5 198.1z"/></svg>`
         },
         plane: {
             label: 'Air Force',

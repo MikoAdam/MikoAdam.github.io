@@ -186,8 +186,28 @@ class MapRenderer {
             this.map.on('load', () => {
                 this.hideClutter();
                 this.setupHoverLayers();
-                // Wait for idle so hover GeoJSON is fully indexed before user can interact
-                this.map.once('idle', () => resolve());
+                // Wait for both hover sources to be fully loaded before user can interact
+                let sourcesLoaded = 0;
+                const checkReady = () => {
+                    sourcesLoaded++;
+                    if (sourcesLoaded >= 2) {
+                        this.map.off('sourcedata', onSourceData);
+                        resolve();
+                    }
+                };
+                const onSourceData = (e) => {
+                    if (e.isSourceLoaded && (e.sourceId === 'hover-countries' || e.sourceId === 'hover-regions')) {
+                        checkReady();
+                    }
+                };
+                this.map.on('sourcedata', onSourceData);
+                // Fallback: resolve after idle if sources already loaded
+                this.map.once('idle', () => {
+                    if (sourcesLoaded < 2) {
+                        this.map.off('sourcedata', onSourceData);
+                        resolve();
+                    }
+                });
             });
         });
     }
