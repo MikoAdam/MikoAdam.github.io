@@ -335,13 +335,14 @@ class ContextMenu {
         this._setVisible('.ctx-section-arrow-edit', editingArrow);
         this._setVisible('.ctx-section-effect-edit', editingEffect);
 
-        // Region vs Country: show one or the other, never both (eliminates redundancy)
-        this._setVisible('#menuColorRegion', isRegion && !inFlow && !editingArrow && !editingEffect);
-        this._setVisible('#menuColorCountry', hasFeature && !isRegion && !inFlow && !editingArrow && !editingEffect);
+        // Country is always the default action (Enter key). Region shows additionally when available.
+        const showCountry = hasFeature && !inFlow && !editingArrow && !editingEffect;
+        const showRegion = isRegion && !inFlow && !editingArrow && !editingEffect;
+        this._setVisible('#menuColorCountry', showCountry);
+        this._setVisible('#menuColorRegion', showRegion);
 
         this.element.querySelectorAll('.ctx-needs-feature').forEach(el => {
-            // Skip #menuColorCountry — already handled above
-            if (el.id === 'menuColorCountry') return;
+            if (el.id === 'menuColorCountry') return; // handled above
             el.style.display = hasFeature ? '' : 'none';
         });
 
@@ -516,11 +517,8 @@ class ContextMenu {
             return;
         }
         if (this.selectedFeature) {
-            if (this.selectedFeature.type === 'region') {
-                this.addRegion();
-            } else {
-                this.addCountry();
-            }
+            // Country is always the default action (Enter key)
+            this.addCountry();
         } else {
             this.toggleOptionsPanel('bubbleOpts');
         }

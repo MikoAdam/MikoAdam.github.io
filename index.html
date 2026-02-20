@@ -252,16 +252,15 @@ zoom: Germany"></textarea>
     <!-- ═══ NORMAL MODE ═══ -->
     <div class="ctx-section-normal">
 
-        <!-- Territory — only one shows at a time (region if available, else country) -->
-        <div class="context-menu-item ctx-default-action" id="menuColorRegion" data-action="addRegion" style="display:none">
-            <span class="icon">&#9638;</span>
-            <span id="regionLabel">Color region</span>
-            <span class="ctx-shortcut">Enter</span>
-        </div>
+        <!-- Territory — Country is the default action; Region shows additionally when available -->
         <div class="context-menu-item ctx-default-action ctx-needs-feature" id="menuColorCountry" data-action="addCountry">
             <span class="icon">&#9632;</span>
             <span id="countryLabel">Color country</span>
             <span class="ctx-shortcut">Enter</span>
+        </div>
+        <div class="context-menu-item" id="menuColorRegion" data-action="addRegion" style="display:none">
+            <span class="icon">&#9638;</span>
+            <span id="regionLabel">Color region</span>
         </div>
 
         <div class="context-menu-divider"></div>
