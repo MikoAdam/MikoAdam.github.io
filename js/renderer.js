@@ -186,7 +186,8 @@ class MapRenderer {
             this.map.on('load', () => {
                 this.hideClutter();
                 this.setupHoverLayers();
-                resolve();
+                // Wait for idle so hover GeoJSON is fully indexed before user can interact
+                this.map.once('idle', () => resolve());
             });
         });
     }

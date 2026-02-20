@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pillars of Creation Maps</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -223,10 +225,8 @@ zoom: Germany"></textarea>
             <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ·
             <a href="https://naturalearthdata.com" target="_blank">Natural Earth</a>
         </div>
-    </div>
-</main>
 
-<!-- Context Menu -->
+<!-- Context Menu (inside map-container so it works in fullscreen) -->
 <div class="context-menu" id="contextMenu">
     <!-- Header -->
     <div class="context-menu-header" id="menuTitle">Select</div>
@@ -484,6 +484,9 @@ zoom: Germany"></textarea>
         </div>
     </div>
 </div>
+
+    </div> <!-- .map-container -->
+</main>
 
 <!-- Scripts -->
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
