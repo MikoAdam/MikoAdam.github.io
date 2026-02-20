@@ -379,14 +379,14 @@ class App {
             ctx.drawImage(this.renderer.arrowCanvas, 0, 0, width, height);
         }
 
-        // 2. Country name labels — use map.project() for accurate positioning
+        // 2. Country name labels — use DOM rect relative to map canvas for accurate positioning
         const mapRect = mapCanvas.getBoundingClientRect();
         this.renderer.labelMarkers.forEach(marker => {
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const x = screenPt.x * dpr;
-            const y = screenPt.y * dpr;
             const label = marker.getElement();
+            if (!label || !label.isConnected) return;
+            const labelRect = label.getBoundingClientRect();
+            const x = (labelRect.left + labelRect.width / 2 - mapRect.left) * dpr;
+            const y = (labelRect.top + labelRect.height / 2 - mapRect.top) * dpr;
             const fontSize = parseFloat(getComputedStyle(label).fontSize) * dpr;
 
             ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
@@ -405,23 +405,18 @@ class App {
         });
         ctx.textAlign = 'left';
 
-        // 3. Map symbols (DOM markers with SVG)
+        // 3. Map symbols (DOM markers with SVG) — use DOM rect relative to map canvas
         const symbolPromises = [];
         document.querySelectorAll('.map-effect').forEach(effectEl => {
-            // Find the marker that owns this element
-            const marker = this.renderer.markers.find(m => m.getElement() === effectEl);
-            if (!marker) return;
-
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const sx = screenPt.x * dpr;
-            const sy = screenPt.y * dpr;
+            if (!effectEl.isConnected) return;
 
             const svgEl = effectEl.querySelector('svg');
             if (!svgEl) return;
 
-            // Get the computed size of the effect element
+            // Use DOM rect for accurate position relative to map canvas
             const effectRect = effectEl.getBoundingClientRect();
+            const sx = (effectRect.left + effectRect.width / 2 - mapRect.left) * dpr;
+            const sy = (effectRect.top + effectRect.height / 2 - mapRect.top) * dpr;
             const ew = effectRect.width * dpr;
             const eh = effectRect.height * dpr;
 
@@ -626,13 +621,14 @@ class App {
             ctx.drawImage(this.renderer.arrowCanvas, 0, 0, width, height);
         }
 
-        // Country name labels (satellite mode)
+        // Country name labels — use DOM rect relative to map canvas
+        const mapRect = mapCanvas.getBoundingClientRect();
         this.renderer.labelMarkers.forEach(marker => {
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const x = screenPt.x * dpr;
-            const y = screenPt.y * dpr;
             const label = marker.getElement();
+            if (!label || !label.isConnected) return;
+            const labelRect = label.getBoundingClientRect();
+            const x = (labelRect.left + labelRect.width / 2 - mapRect.left) * dpr;
+            const y = (labelRect.top + labelRect.height / 2 - mapRect.top) * dpr;
             const fontSize = parseFloat(getComputedStyle(label).fontSize) * dpr;
 
             ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
@@ -649,16 +645,13 @@ class App {
         });
         ctx.textAlign = 'left';
 
-        // Symbols — draw pre-cached images (cached on first encounter)
+        // Symbols — use DOM rect relative to map canvas, draw pre-cached images
         if (!this._symbolImageCache) this._symbolImageCache = {};
         document.querySelectorAll('.map-effect').forEach(effectEl => {
-            const marker = this.renderer.markers.find(m => m.getElement() === effectEl);
-            if (!marker) return;
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const sx = screenPt.x * dpr;
-            const sy = screenPt.y * dpr;
+            if (!effectEl.isConnected) return;
             const effectRect = effectEl.getBoundingClientRect();
+            const sx = (effectRect.left + effectRect.width / 2 - mapRect.left) * dpr;
+            const sy = (effectRect.top + effectRect.height / 2 - mapRect.top) * dpr;
             const ew = effectRect.width * dpr;
             const eh = effectRect.height * dpr;
             const color = getComputedStyle(effectEl).color || '#ef4444';
@@ -685,8 +678,7 @@ class App {
             }
         });
 
-        // Bubbles
-        const mapRect = mapCanvas.getBoundingClientRect();
+        // Bubbles — use DOM rect relative to map canvas
         document.querySelectorAll('.map-bubble').forEach(bubble => {
             const rect = bubble.getBoundingClientRect();
             const bx = (rect.left - mapRect.left) * dpr;

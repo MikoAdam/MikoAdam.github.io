@@ -61,7 +61,7 @@ class EffectsLibrary {
             label: 'Infantry',
             cls: 'fx-troops',
             category: 'military',
-            svg: `<svg viewBox="0 0 640 512" fill="currentColor"><path d="M184 88a56 56 0 1 1 112 0 56 56 0 1 1-112 0zm72 136l0 168-64 0 0-168c-2 0-4 0-6-.1-34.6-1.8-67.1-17-90.1-42.7L71.4 152.3c-14.3-16.2-12.8-41 3.5-55.3s41-12.8 55.3 3.5L158.2 133c11.6 13.1 28.1 20.8 45.6 22.1l16.5-57.4c7-24.2 29.1-41 54.4-41l.4 0c25.5 0 47.7 17.1 54.4 41.6l15.7 56.3c17.3-1.6 33.6-9.4 45-22.5l28.1-32.9c14.2-16.3 39-18 55.3-3.8s18 39 3.8 55.3L453 184.2c-23.1 25.8-55.7 40.9-90.5 42.5l-.4 0-.1 0c-1.6 .1-3.2 .1-4.7 .1l0 168-64 0 0-168-37.3 0zM24 400l136 0 16 0 128 0 16 0 136 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-136 0-16 0-128 0-16 0L24 448c-13.3 0-24-10.7-24-24s10.7-24 24-24z"/></svg>`
+            svg: `<svg viewBox="0 0 64 64" fill="currentColor"><line x1="12" y1="52" x2="52" y2="12" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="52" y1="52" x2="12" y2="12" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>`
         },
         plane: {
             label: 'Air Force',
