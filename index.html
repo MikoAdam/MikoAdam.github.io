@@ -129,6 +129,8 @@ zoom: Germany"></textarea>
                 <p>With curve: <code>attack: Germany, France, red, 0.30</code></p>
                 <p>With width: <code>attack: Germany, France, red, 0.15, 2</code></p>
                 <p>With head size: <code>attack: Germany, France, red, 0.15, 1, 2.5</code></p>
+                <p>Animated: <code>attack: Germany, France, red, 0.15, 1, 1, draw</code></p>
+                <p>Animations: <code>draw</code>, <code>fade</code>, <code>pulse</code></p>
                 <p>Coordinates: <code>attack: 52.5 13.4, 48.8 2.3, red</code></p>
 
                 <h3>Connection Lines</h3>
@@ -234,6 +236,7 @@ zoom: Germany"></textarea>
     <!-- Color Palette -->
     <div class="context-menu-section">Color</div>
     <div class="color-palette" id="colorPalette"></div>
+    <input type="color" id="customColorPicker" style="display:none">
 
     <!-- Animation Pills (hidden for ocean clicks) -->
     <div class="ctx-section-anim">
@@ -272,6 +275,13 @@ zoom: Germany"></textarea>
             <span class="ctx-more-btn" data-panel="arrowOpts">&#9662;</span>
         </div>
         <div class="ctx-options" id="arrowOpts">
+            <div class="ctx-opt-label">Animation</div>
+            <div class="arrow-anim-pills">
+                <button class="arrow-anim-pill selected" data-anim="none">none</button>
+                <button class="arrow-anim-pill" data-anim="draw">draw</button>
+                <button class="arrow-anim-pill" data-anim="fade">fade</button>
+                <button class="arrow-anim-pill" data-anim="pulse">pulse</button>
+            </div>
             <div class="ctx-opt-label">Curve</div>
             <div class="ctx-range-row">
                 <input type="range" class="ctx-range" id="arrowCurveRange" min="-0.5" max="0.5" step="0.05" value="0.15">

@@ -23,7 +23,7 @@ class EffectsLibrary {
             label: 'Battle',
             cls: 'fx-battle',
             category: 'combat',
-            svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11l5 0"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68l3 -3l-3.365 -3.365"/><path d="M10 5.5l-2 -2.5h-5v5l3 2.5"/></svg>`
+            svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v5l-11 9l-4 4l-3 -3l4 -4l9 -11z"/><path d="M5 13l6 6"/><path d="M3 21l3.68 -3.68l3 3l-3.68 3.68z"/><path d="M14.32 17.32l3.68 3.68l3 -3l-3.68 -3.68"/><path d="M10 5.5l-2 -2.5h-5v5l3 2.5"/><path d="M13 10.5l2 2.5h5v-5l-3 -2.5"/></svg>`
         },
         bombing: {
             label: 'Airstrike',
@@ -61,7 +61,7 @@ class EffectsLibrary {
             label: 'Infantry',
             cls: 'fx-troops',
             category: 'military',
-            svg: `<svg viewBox="0 0 64 64" fill="currentColor"><line x1="12" y1="52" x2="52" y2="12" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="52" y1="52" x2="12" y2="12" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>`
+            svg: `<svg viewBox="0 0 64 64" fill="currentColor"><ellipse cx="32" cy="26" rx="22" ry="16"/><rect x="8" y="28" width="48" height="6" rx="2"/></svg>`
         },
         plane: {
             label: 'Air Force',

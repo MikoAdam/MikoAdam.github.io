@@ -603,11 +603,30 @@ class MapRenderer {
         this.addArrow(fromCenter, toCenter, color, curve, { fromName, toName }, width, headSize);
     }
 
-    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null) {
+    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null, animation = 'none') {
         this.initArrowCanvas();
         this.initArrowDragEditing();
-        this.arrows.push({ from, to, color, curve, meta, width, headSize: headSize ?? width });
-        this.renderArrows();
+        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1 };
+        this.arrows.push(arrow);
+        if (animation && animation !== 'none') {
+            this._animateArrow(arrow);
+        } else {
+            this.renderArrows();
+        }
+    }
+
+    _animateArrow(arrow) {
+        const duration = arrow.animation === 'draw' ? 800 : arrow.animation === 'fade' ? 600 : 500;
+        const start = performance.now();
+        arrow.animProgress = 0;
+        const tick = (now) => {
+            const t = Math.min(1, (now - start) / duration);
+            // Ease out cubic
+            arrow.animProgress = 1 - Math.pow(1 - t, 3);
+            this.renderArrows();
+            if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
     }
 
     renderArrows() {
@@ -695,6 +714,22 @@ class MapRenderer {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 5) return;
 
+        const anim = arrow.animation || 'none';
+        const prog = arrow.animProgress ?? 1;
+
+        // Fade animation — control global alpha
+        if (anim === 'fade' && prog < 1) {
+            ctx.save();
+            ctx.globalAlpha = prog;
+        }
+
+        // Pulse animation — add glow that fades out
+        if (anim === 'pulse' && prog < 1) {
+            ctx.save();
+            ctx.shadowColor = arrow.color;
+            ctx.shadowBlur = 20 * (1 - prog);
+        }
+
         // Perpendicular for curve
         const nx = -dy / dist;
         const ny = dx / dist;
@@ -743,33 +778,48 @@ class MapRenderer {
         const tpx = -ty; // perpendicular
         const tpy = tx;
 
-        // ── Shaft ──
-        const shaftEnd = bPt(tEnd);
-
+        // ── Shaft — extends all the way to the tip ──
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(cp.x, cp.y, shaftEnd.x, shaftEnd.y);
+        ctx.quadraticCurveTo(cp.x, cp.y, p2.x, p2.y);
         ctx.strokeStyle = arrow.color;
         ctx.lineWidth = shaftW;
         ctx.lineCap = 'round';
+        // Draw animation — reveal the shaft progressively using lineDash
+        if (anim === 'draw' && prog < 1) {
+            const totalLen = dist * 1.3; // approximate bezier arc length
+            ctx.setLineDash([totalLen * prog, totalLen]);
+        }
         ctx.stroke();
         ctx.restore();
 
-        // ── Arrowhead: filled triangle touching the tip ──
-        const base = bPt(tEnd);
-        const wingL = { x: base.x + tpx * headHalfW, y: base.y + tpy * headHalfW };
-        const wingR = { x: base.x - tpx * headHalfW, y: base.y - tpy * headHalfW };
+        // ── Arrowhead: open V-shape (two stroked lines from tip to wings) ──
+        // For draw animation, only show head when progress > 0.7
+        const headAlpha = anim === 'draw' ? Math.max(0, (prog - 0.7) / 0.3) : 1;
+        if (headAlpha > 0) {
+            const base = bPt(tEnd);
+            const wingL = { x: base.x + tpx * headHalfW, y: base.y + tpy * headHalfW };
+            const wingR = { x: base.x - tpx * headHalfW, y: base.y - tpy * headHalfW };
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(p2.x, p2.y);       // tip
-        ctx.lineTo(wingL.x, wingL.y);  // left wing
-        ctx.lineTo(wingR.x, wingR.y);  // right wing
-        ctx.closePath();
-        ctx.fillStyle = arrow.color;
-        ctx.fill();
-        ctx.restore();
+            ctx.save();
+            if (headAlpha < 1) ctx.globalAlpha = (ctx.globalAlpha || 1) * headAlpha;
+            ctx.beginPath();
+            ctx.moveTo(wingL.x, wingL.y);
+            ctx.lineTo(p2.x, p2.y);       // tip
+            ctx.lineTo(wingR.x, wingR.y);
+            ctx.strokeStyle = arrow.color;
+            ctx.lineWidth = Math.max(shaftW, 2) * headScale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Restore animation contexts
+        if ((anim === 'fade' || anim === 'pulse') && prog < 1) {
+            ctx.restore();
+        }
     }
 
     clearAttackArrows() {

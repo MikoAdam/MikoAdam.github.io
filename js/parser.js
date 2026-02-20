@@ -197,6 +197,7 @@ class ScriptParser {
         if (parts[3] !== undefined) cmd.curve = parseFloat(parts[3]);
         if (parts[4] !== undefined) cmd.width = parseFloat(parts[4]);
         if (parts[5] !== undefined) cmd.headSize = parseFloat(parts[5]);
+        if (parts[6] !== undefined) cmd.animation = parts[6].trim().toLowerCase();
         return cmd;
     }
 }

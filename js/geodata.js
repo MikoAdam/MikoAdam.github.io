@@ -19,12 +19,19 @@ class GeoData {
             'norway': [10.0, 62.0],
             'russia': [37.0, 55.0],
             'russian federation': [37.0, 55.0],
-            'kosovo': [20.9, 42.6]
+            'kosovo': [20.9, 42.6],
+            'india': [79.0, 23.0],
+            'china': [104.0, 35.0],
+            'brazil': [-51.0, -10.0],
+            'canada': [-96.0, 56.0],
+            'indonesia': [118.0, -2.0],
+            'australia': [134.0, -25.0],
+            'palestine': [35.0, 31.5]
         };
     }
 
     async load() {
-        const cacheKey = 'poc-maps-geodata-v3';
+        const cacheKey = 'poc-maps-geodata-v4';
 
         // Try cache first
         const cached = localStorage.getItem(cacheKey);
@@ -110,7 +117,7 @@ class GeoData {
     }
 
     fixDisputedTerritories() {
-        // Fix Crimea
+        // Fix Crimea — reassign regions to Ukraine
         this.regions.features.forEach(f => {
             const name = (f.properties.name || f.properties.NAME || '').toLowerCase();
             if (name.includes('crimea') || name.includes('krym') || name.includes('sevastopol')) {
@@ -130,11 +137,29 @@ class GeoData {
             return name.includes('crimea') || name.includes('krym') || name.includes('sevastopol');
         });
 
+        // Merge Crimea into Ukraine's geometry
         if (ukraine && crimeaRegions.length > 0) {
             crimeaRegions.forEach(crimea => this.mergeGeometry(ukraine, crimea));
         }
 
-        console.log('GeoData: Fixed Crimea -> Ukraine');
+        // Remove Crimea from Russia's geometry
+        const russia = this.countries.features.find(f =>
+            (f.properties.NAME || '').toLowerCase().includes('russia')
+        );
+        if (russia && russia.geometry.type === 'MultiPolygon') {
+            russia.geometry.coordinates = russia.geometry.coordinates.filter(poly => {
+                // Calculate centroid of this polygon ring
+                const ring = poly[0]; // outer ring
+                let cx = 0, cy = 0;
+                for (const pt of ring) { cx += pt[0]; cy += pt[1]; }
+                cx /= ring.length; cy /= ring.length;
+                // Crimea bounding box: ~32.5-36.5°E, 44-46.2°N
+                const isCrimea = cx > 32.5 && cx < 36.5 && cy > 44 && cy < 46.2;
+                return !isCrimea;
+            });
+        }
+
+        console.log('GeoData: Fixed Crimea -> Ukraine, removed from Russia');
     }
 
     mergeGeometry(target, source) {

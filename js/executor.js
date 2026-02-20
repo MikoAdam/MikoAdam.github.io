@@ -54,7 +54,7 @@ class ScriptExecutor {
                     this.renderer.addArrow(
                         atkCoords.from, atkCoords.to, color,
                         cmd.curve ?? 0.15, { fromName: atkCoords.fromName, toName: atkCoords.toName },
-                        cmd.width ?? 1, cmd.headSize ?? null
+                        cmd.width ?? 1, cmd.headSize ?? null, cmd.animation || 'none'
                     );
                 }
                 break;
