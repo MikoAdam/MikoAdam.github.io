@@ -414,25 +414,20 @@ zoom: Germany"></textarea>
                 <span class="icon">&#10005;</span> Clear symbols
             </div>
         </div>
+
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item ctx-done-btn" data-action="close">
+            <span class="icon">&#10003;</span> Done
+        </div>
     </div>
 
     <!-- ═══ ARROW EDIT MODE ═══ -->
     <div class="ctx-section-arrow-edit" style="display:none">
         <div class="ctx-options open" style="display:block">
-            <div class="ctx-opt-label">Curve</div>
+            <div class="ctx-opt-label">Draw duration (ms)</div>
             <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="editArrowCurve" min="-0.5" max="0.5" step="0.05" value="0.15">
-                <span class="ctx-range-value">0.15</span>
-            </div>
-            <div class="ctx-opt-label">Shaft width</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="editArrowWidth" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
-            </div>
-            <div class="ctx-opt-label">Head size</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="editArrowHeadSize" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
+                <input type="range" class="ctx-range" id="editArrowDuration" min="200" max="3000" step="100" value="800">
+                <span class="ctx-range-value">800</span>
             </div>
         </div>
 

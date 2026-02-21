@@ -62,10 +62,10 @@ class ContextMenu {
             palette.appendChild(swatch);
         });
 
-        // Custom color button — proper labeled button after swatches
+        // Custom color picker button — color preview circle + "Pick" label
         const customBtn = document.createElement('button');
-        customBtn.className = 'color-custom-btn';
-        customBtn.textContent = 'Custom';
+        customBtn.className = 'color-picker-btn';
+        customBtn.innerHTML = '<span class="color-picker-preview"></span> Pick color';
         customBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const picker = document.getElementById('customColorPicker');
@@ -82,9 +82,9 @@ class ContextMenu {
             picker.addEventListener('input', (e) => {
                 const hex = e.target.value;
                 this._lastCustomColor = hex;
-                // Show preview swatch next to button
-                customBtn.style.borderColor = hex;
-                customBtn.style.color = hex;
+                // Update preview circle
+                const preview = customBtn.querySelector('.color-picker-preview');
+                if (preview) preview.style.background = hex;
                 this.selectColor(hex, null);
                 // Deselect all preset swatches
                 document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
@@ -152,8 +152,8 @@ class ContextMenu {
             if (e.target.matches('.ctx-range')) {
                 const valueDisplay = e.target.closest('.ctx-range-row')?.querySelector('.ctx-range-value');
                 if (valueDisplay) valueDisplay.textContent = parseFloat(e.target.value).toFixed(2);
-                // Auto-apply when editing an existing arrow
-                if (this._selectedArrow && (e.target.id === 'editArrowCurve' || e.target.id === 'editArrowWidth' || e.target.id === 'editArrowHeadSize')) {
+                // Auto-apply when editing an existing arrow's duration
+                if (this._selectedArrow && e.target.id === 'editArrowDuration') {
                     this._autoApplyArrowEdit();
                 }
                 // Auto-apply when editing an existing effect's size
@@ -420,12 +420,8 @@ class ContextMenu {
         // Pre-fill arrow edit controls
         if (editingArrow) {
             const a = arrowHit.arrow;
-            const editCurve = document.getElementById('editArrowCurve');
-            const editWidth = document.getElementById('editArrowWidth');
-            const editHead = document.getElementById('editArrowHeadSize');
-            if (editCurve) { editCurve.value = a.curve; editCurve.nextElementSibling.textContent = a.curve.toFixed(2); }
-            if (editWidth) { editWidth.value = a.width || 1; editWidth.nextElementSibling.textContent = (a.width || 1).toFixed(2); }
-            if (editHead) { editHead.value = a.headSize ?? (a.width || 1); editHead.nextElementSibling.textContent = (a.headSize ?? (a.width || 1)).toFixed(2); }
+            const editDuration = document.getElementById('editArrowDuration');
+            if (editDuration) { editDuration.value = a.drawDuration || 800; editDuration.nextElementSibling.textContent = (a.drawDuration || 800); }
             const colorName = Object.entries(CONFIG.colors).find(([, hex]) => hex === a.color);
             if (colorName) this.selectColor(colorName[0], document.querySelector(`.color-swatch[data-color="${colorName[0]}"]`));
         }
@@ -904,12 +900,8 @@ class ContextMenu {
     _autoApplyArrowEdit() {
         if (!this._selectedArrow) return;
         const a = this._selectedArrow.arrow;
-        const curveEl = document.getElementById('editArrowCurve');
-        const widthEl = document.getElementById('editArrowWidth');
-        const headEl = document.getElementById('editArrowHeadSize');
-        if (curveEl) a.curve = parseFloat(curveEl.value);
-        if (widthEl) a.width = parseFloat(widthEl.value);
-        if (headEl) a.headSize = parseFloat(headEl.value);
+        const durationEl = document.getElementById('editArrowDuration');
+        if (durationEl) a.drawDuration = parseInt(durationEl.value);
         const colorHex = CONFIG.colors[this.selectedColor] || this.selectedColor;
         a.color = colorHex;
         this.app.renderer.renderArrows();
