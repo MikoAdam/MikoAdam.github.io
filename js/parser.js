@@ -4,12 +4,18 @@
 
 class ScriptParser {
     parse(script) {
-        return script
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('#'))
-            .map(line => this.parseLine(line))
-            .filter(Boolean);
+        const lines = script.split('\n');
+        const commands = [];
+        for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const cmd = this.parseLine(trimmed);
+            if (cmd) {
+                cmd.scriptLine = i;
+                commands.push(cmd);
+            }
+        }
+        return commands;
     }
 
     parseLine(line) {

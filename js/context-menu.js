@@ -88,8 +88,23 @@ class ContextMenu {
                 this.selectColor(hex, null);
                 // Deselect all preset swatches
                 document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                // Show done button when custom color is picked
+                if (doneBtn) doneBtn.style.display = '';
             });
         }
+
+        // Done button — visible after picking a custom color, always visible in edit modes
+        const doneBtn = document.createElement('div');
+        doneBtn.className = 'context-menu-item ctx-done-btn';
+        doneBtn.dataset.action = 'close';
+        doneBtn.innerHTML = '<span class="icon">&#10003;</span> Done';
+        doneBtn.style.display = 'none';
+        doneBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.close();
+        });
+        palette.parentNode.insertBefore(doneBtn, palette.nextSibling);
+        this._colorDoneBtn = doneBtn;
     }
 
     setupAnimationPills() {
@@ -374,6 +389,11 @@ class ContextMenu {
         this._setVisible('.ctx-section-arrow-edit', editingArrow);
         this._setVisible('.ctx-section-effect-edit', editingEffect);
 
+        // Show color Done button in edit modes (arrow/effect), hide in normal mode
+        if (this._colorDoneBtn) {
+            this._colorDoneBtn.style.display = (editingArrow || editingEffect) ? '' : 'none';
+        }
+
         // Country is always the default action (Enter key). Region shows additionally when available.
         const showCountry = hasFeature && !inFlow && !editingArrow && !editingEffect;
         const showRegion = isRegion && !inFlow && !editingArrow && !editingEffect;
@@ -499,6 +519,7 @@ class ContextMenu {
         this._selectedArrow = null;
         this._selectedEffectMarker = null;
         this.closeAllPanels();
+        if (this._colorDoneBtn) this._colorDoneBtn.style.display = 'none';
     }
 
     // ─── Selection ───
