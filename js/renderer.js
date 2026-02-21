@@ -658,18 +658,17 @@ class MapRenderer {
 
     /**
      * Generate script line text from an arrow object.
+     * Format: attack: fromLat fromLng, toLat toLng, color, curve, width, headSize
      */
     arrowToScript(arrow) {
         const fromLat = arrow.from[1].toFixed(2), fromLng = arrow.from[0].toFixed(2);
         const toLat = arrow.to[1].toFixed(2), toLng = arrow.to[0].toFixed(2);
         const colorName = Object.entries(CONFIG.colors).find(([, hex]) => hex === arrow.color);
         const color = colorName ? colorName[0] : arrow.color;
-        let line = `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}`;
-        if (Math.abs(arrow.curve - 0.15) > 0.01) line += `, ${arrow.curve.toFixed(2)}`;
-        if (Math.abs(arrow.width - 1) > 0.01) line += `, ${arrow.width.toFixed(2)}`;
-        if (Math.abs((arrow.headSize ?? arrow.width) - 1) > 0.01 && Math.abs(arrow.width - 1) <= 0.01) line += `, 1.00, ${arrow.headSize.toFixed(2)}`;
-        else if (Math.abs((arrow.headSize ?? arrow.width) - 1) > 0.01) line += `, ${arrow.headSize.toFixed(2)}`;
-        return line;
+        const curve = (arrow.curve || 0.15).toFixed(2);
+        const width = (arrow.width || 1).toFixed(2);
+        const headSize = (arrow.headSize ?? arrow.width ?? 1).toFixed(2);
+        return `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}, ${curve}, ${width}, ${headSize}`;
     }
 
     _animateArrow(arrow, onComplete) {

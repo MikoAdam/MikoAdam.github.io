@@ -700,18 +700,14 @@ class ContextMenu {
             const width = this._flowWidth;
             const headSize = this._flowHeadSize;
             const duration = this._flowDuration || 800;
-            // Always use coordinates for the script line
-            const fromLat = fromCoord[1].toFixed(2), fromLng = fromCoord[0].toFixed(2);
-            const toLat = toCoordResolved[1].toFixed(2), toLng = toCoordResolved[0].toFixed(2);
-            let line = `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}`;
-            if (Math.abs(curve - 0.15) > 0.01) line += `, ${curve.toFixed(2)}`;
-            if (Math.abs(width - 1) > 0.01) line += `, ${width.toFixed(2)}`;
-            if (Math.abs(headSize - 1) > 0.01) line += `, ${headSize.toFixed(2)}`;
-            const lineIdx = this.editor.insert(line);
+            // Create arrow first, then use arrowToScript for consistent formatting
             if (fromCoord && toCoordResolved) {
                 const arrow = renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
                     { fromName: this._flowFromLabel, toName: toScript }, width, headSize, 'none', duration);
-                if (arrow) arrow.scriptLine = lineIdx;
+                if (arrow) {
+                    const lineIdx = this.editor.insert(renderer.arrowToScript(arrow));
+                    arrow.scriptLine = lineIdx;
+                }
             }
         } else if (this._flowType === 'line') {
             this.editor.insert(`line: ${this._flowFrom}, ${toScript}, ${color}`);
