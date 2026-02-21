@@ -62,11 +62,10 @@ class ContextMenu {
             palette.appendChild(swatch);
         });
 
-        // Custom color "+" button — inline at end of swatches
-        const customBtn = document.createElement('div');
-        customBtn.className = 'color-swatch color-swatch-custom';
-        customBtn.title = 'Custom color';
-        customBtn.textContent = '+';
+        // Custom color button — proper labeled button after swatches
+        const customBtn = document.createElement('button');
+        customBtn.className = 'color-custom-btn';
+        customBtn.textContent = 'Custom';
         customBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const picker = document.getElementById('customColorPicker');
@@ -83,13 +82,12 @@ class ContextMenu {
             picker.addEventListener('input', (e) => {
                 const hex = e.target.value;
                 this._lastCustomColor = hex;
-                const customEl = document.querySelector('.color-swatch-custom');
-                if (customEl) {
-                    customEl.style.background = hex;
-                    customEl.style.color = '#fff';
-                    customEl.textContent = '';
-                }
-                this.selectColor(hex, customEl);
+                // Show preview swatch next to button
+                customBtn.style.borderColor = hex;
+                customBtn.style.color = hex;
+                this.selectColor(hex, null);
+                // Deselect all preset swatches
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
             });
         }
     }
