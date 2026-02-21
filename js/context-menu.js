@@ -153,7 +153,7 @@ class ContextMenu {
                 const valueDisplay = e.target.closest('.ctx-range-row')?.querySelector('.ctx-range-value');
                 if (valueDisplay) valueDisplay.textContent = parseFloat(e.target.value).toFixed(2);
                 // Auto-apply when editing an existing arrow
-                if (this._selectedArrow && (e.target.id === 'editArrowCurve' || e.target.id === 'editArrowWidth' || e.target.id === 'editArrowHeadSize' || e.target.id === 'editArrowDuration')) {
+                if (this._selectedArrow && (e.target.id === 'editArrowWidth' || e.target.id === 'editArrowHeadSize' || e.target.id === 'editArrowDuration')) {
                     this._autoApplyArrowEdit();
                 }
                 // Auto-apply when editing an existing effect's size
@@ -420,11 +420,9 @@ class ContextMenu {
         // Pre-fill arrow edit controls
         if (editingArrow) {
             const a = arrowHit.arrow;
-            const editCurve = document.getElementById('editArrowCurve');
             const editWidth = document.getElementById('editArrowWidth');
             const editHead = document.getElementById('editArrowHeadSize');
             const editDuration = document.getElementById('editArrowDuration');
-            if (editCurve) { editCurve.value = a.curve; editCurve.nextElementSibling.textContent = a.curve.toFixed(2); }
             if (editWidth) { editWidth.value = a.width || 1; editWidth.nextElementSibling.textContent = (a.width || 1).toFixed(2); }
             if (editHead) { editHead.value = a.headSize ?? (a.width || 1); editHead.nextElementSibling.textContent = (a.headSize ?? (a.width || 1)).toFixed(2); }
             if (editDuration) { editDuration.value = a.drawDuration || 800; editDuration.nextElementSibling.textContent = (a.drawDuration || 800); }
@@ -702,11 +700,18 @@ class ContextMenu {
             const width = this._flowWidth;
             const headSize = this._flowHeadSize;
             const duration = this._flowDuration || 800;
-            let line = `attack: ${this._flowFrom}, ${toScript}, ${color}`;
-            this.editor.insert(line);
+            // Always use coordinates for the script line
+            const fromLat = fromCoord[1].toFixed(2), fromLng = fromCoord[0].toFixed(2);
+            const toLat = toCoordResolved[1].toFixed(2), toLng = toCoordResolved[0].toFixed(2);
+            let line = `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}`;
+            if (Math.abs(curve - 0.15) > 0.01) line += `, ${curve.toFixed(2)}`;
+            if (Math.abs(width - 1) > 0.01) line += `, ${width.toFixed(2)}`;
+            if (Math.abs(headSize - 1) > 0.01) line += `, ${headSize.toFixed(2)}`;
+            const lineIdx = this.editor.insert(line);
             if (fromCoord && toCoordResolved) {
-                renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
+                const arrow = renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
                     { fromName: this._flowFromLabel, toName: toScript }, width, headSize, 'none', duration);
+                if (arrow) arrow.scriptLine = lineIdx;
             }
         } else if (this._flowType === 'line') {
             this.editor.insert(`line: ${this._flowFrom}, ${toScript}, ${color}`);
@@ -906,17 +911,19 @@ class ContextMenu {
     _autoApplyArrowEdit() {
         if (!this._selectedArrow) return;
         const a = this._selectedArrow.arrow;
-        const curveEl = document.getElementById('editArrowCurve');
         const widthEl = document.getElementById('editArrowWidth');
         const headEl = document.getElementById('editArrowHeadSize');
         const durationEl = document.getElementById('editArrowDuration');
-        if (curveEl) a.curve = parseFloat(curveEl.value);
         if (widthEl) a.width = parseFloat(widthEl.value);
         if (headEl) a.headSize = parseFloat(headEl.value);
         if (durationEl) a.drawDuration = parseInt(durationEl.value);
         const colorHex = CONFIG.colors[this.selectedColor] || this.selectedColor;
         a.color = colorHex;
         this.app.renderer.renderArrows();
+        // Sync change to script
+        if (a.scriptLine >= 0) {
+            this.editor.updateArrowLine(a.scriptLine, this.app.renderer.arrowToScript(a));
+        }
     }
 
     applyArrowEdit() {
@@ -927,6 +934,15 @@ class ContextMenu {
 
     deleteArrow() {
         if (!this._selectedArrow) return;
+        const a = this._selectedArrow.arrow;
+        // Remove from script
+        if (a.scriptLine >= 0) {
+            this.editor.removeLine(a.scriptLine);
+            // Adjust scriptLine indices for arrows after this one
+            this.app.renderer.arrows.forEach(arr => {
+                if (arr.scriptLine > a.scriptLine) arr.scriptLine--;
+            });
+        }
         this.app.renderer.removeArrow(this._selectedArrow.index);
         this.close();
     }
@@ -943,6 +959,10 @@ class ContextMenu {
             a.meta.toName = tmpN;
         }
         this.app.renderer.renderArrows();
+        // Sync to script
+        if (a.scriptLine >= 0) {
+            this.editor.updateArrowLine(a.scriptLine, this.app.renderer.arrowToScript(a));
+        }
         this.close();
     }
 

@@ -38,6 +38,13 @@ class App {
         await this.renderer.init();
         this.executor = new ScriptExecutor(this.renderer, this.geoData);
         this.menu = new ContextMenu(this.editor, () => this.renderer.getZoom(), this);
+
+        // Sync arrow map edits back to script
+        this.renderer.onArrowEdited = (arrow) => {
+            if (arrow.scriptLine >= 0) {
+                this.editor.updateArrowLine(arrow.scriptLine, this.renderer.arrowToScript(arrow));
+            }
+        };
         this.setupEventHandlers();
         this.loadExamples();
 

@@ -643,7 +643,7 @@ class MapRenderer {
     addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null, animation = 'none', drawDuration = 800) {
         this.initArrowCanvas();
         this.initArrowDragEditing();
-        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1, drawDuration };
+        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1, drawDuration, scriptLine: -1 };
         this.arrows.push(arrow);
         // Always animate drawing from start point when first placed
         arrow.animation = 'draw';
@@ -653,6 +653,23 @@ class MapRenderer {
             arrow.animation = animation;
             arrow.animProgress = 1;
         });
+        return arrow;
+    }
+
+    /**
+     * Generate script line text from an arrow object.
+     */
+    arrowToScript(arrow) {
+        const fromLat = arrow.from[1].toFixed(2), fromLng = arrow.from[0].toFixed(2);
+        const toLat = arrow.to[1].toFixed(2), toLng = arrow.to[0].toFixed(2);
+        const colorName = Object.entries(CONFIG.colors).find(([, hex]) => hex === arrow.color);
+        const color = colorName ? colorName[0] : arrow.color;
+        let line = `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}`;
+        if (Math.abs(arrow.curve - 0.15) > 0.01) line += `, ${arrow.curve.toFixed(2)}`;
+        if (Math.abs(arrow.width - 1) > 0.01) line += `, ${arrow.width.toFixed(2)}`;
+        if (Math.abs((arrow.headSize ?? arrow.width) - 1) > 0.01 && Math.abs(arrow.width - 1) <= 0.01) line += `, 1.00, ${arrow.headSize.toFixed(2)}`;
+        else if (Math.abs((arrow.headSize ?? arrow.width) - 1) > 0.01) line += `, ${arrow.headSize.toFixed(2)}`;
+        return line;
     }
 
     _animateArrow(arrow, onComplete) {
@@ -1010,6 +1027,9 @@ class MapRenderer {
                 this._draggingHandle = null;
                 this._isDragging = false;
                 this.renderArrows();
+                // Notify about the edit so the script can be updated
+                const arrow = this.arrows[this._selectedArrowIdx];
+                if (arrow && this.onArrowEdited) this.onArrowEdited(arrow);
             }
         };
         canvas.addEventListener('mouseup', endDrag);
