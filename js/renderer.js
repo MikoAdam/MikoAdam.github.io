@@ -21,6 +21,7 @@ class MapRenderer {
         this.legendEntries = [];
         this.legendElement = null;
         this._coloredFeatures = []; // Track colored features for style switch
+        this.hoverSourcesReady = false; // Track if hover sources are loaded
     }
 
     hideClutter() {
@@ -186,28 +187,19 @@ class MapRenderer {
             this.map.on('load', () => {
                 this.hideClutter();
                 this.setupHoverLayers();
-                // Wait for both hover sources to be fully loaded before user can interact
-                let sourcesLoaded = 0;
-                const checkReady = () => {
-                    sourcesLoaded++;
-                    if (sourcesLoaded >= 2) {
-                        this.map.off('sourcedata', onSourceData);
+                // Wait for setupHoverLayers' sourcedata tracking to mark ready
+                const checkInterval = setInterval(() => {
+                    if (this.hoverSourcesReady) {
+                        clearInterval(checkInterval);
                         resolve();
                     }
-                };
-                const onSourceData = (e) => {
-                    if (e.isSourceLoaded && (e.sourceId === 'hover-countries' || e.sourceId === 'hover-regions')) {
-                        checkReady();
-                    }
-                };
-                this.map.on('sourcedata', onSourceData);
-                // Fallback: resolve after idle if sources already loaded
-                this.map.once('idle', () => {
-                    if (sourcesLoaded < 2) {
-                        this.map.off('sourcedata', onSourceData);
-                        resolve();
-                    }
-                });
+                }, 50);
+                // Fallback: resolve after 3s no matter what
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    this.hoverSourcesReady = true;
+                    resolve();
+                }, 3000);
             });
         });
     }
@@ -346,6 +338,8 @@ class MapRenderer {
     setupHoverLayers() {
         if (!this.geoData.countries) return;
 
+        this.hoverSourcesReady = false;
+
         const currentCenter = this.map.getCenter();
         const currentZoom = this.map.getZoom();
 
@@ -376,6 +370,29 @@ class MapRenderer {
         }
 
         this.map.jumpTo({ center: currentCenter, zoom: currentZoom });
+
+        // Wait for both hover sources to be indexed before marking ready
+        let sourcesLoaded = 0;
+        const checkReady = () => {
+            sourcesLoaded++;
+            if (sourcesLoaded >= 2) {
+                this.map.off('sourcedata', onSourceData);
+                this.hoverSourcesReady = true;
+            }
+        };
+        const onSourceData = (e) => {
+            if (e.isSourceLoaded && (e.sourceId === 'hover-countries' || e.sourceId === 'hover-regions')) {
+                checkReady();
+            }
+        };
+        this.map.on('sourcedata', onSourceData);
+        // Fallback: mark ready after idle
+        this.map.once('idle', () => {
+            if (sourcesLoaded < 2) {
+                this.map.off('sourcedata', onSourceData);
+                this.hoverSourcesReady = true;
+            }
+        });
 
         const popup = new maplibregl.Popup({
             closeButton: false,
@@ -628,14 +645,17 @@ class MapRenderer {
         this.initArrowDragEditing();
         const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1 };
         this.arrows.push(arrow);
-        if (animation && animation !== 'none') {
-            this._animateArrow(arrow);
-        } else {
-            this.renderArrows();
-        }
+        // Always animate drawing from start point when first placed
+        arrow.animation = 'draw';
+        arrow.animProgress = 0;
+        this._animateArrow(arrow, () => {
+            // After draw-in completes, set to the intended animation (or none)
+            arrow.animation = animation;
+            arrow.animProgress = 1;
+        });
     }
 
-    _animateArrow(arrow) {
+    _animateArrow(arrow, onComplete) {
         const duration = arrow.animation === 'draw' ? 800 : arrow.animation === 'fade' ? 600 : 500;
         const start = performance.now();
         arrow.animProgress = 0;
@@ -644,7 +664,11 @@ class MapRenderer {
             // Ease out cubic
             arrow.animProgress = 1 - Math.pow(1 - t, 3);
             this.renderArrows();
-            if (t < 1) requestAnimationFrame(tick);
+            if (t < 1) {
+                requestAnimationFrame(tick);
+            } else if (onComplete) {
+                onComplete();
+            }
         };
         requestAnimationFrame(tick);
     }
@@ -1339,6 +1363,8 @@ class MapRenderer {
     // ─── Query ───
 
     queryFeatures(point) {
+        if (!this.hoverSourcesReady) return null;
+        if (!this.map.getLayer('hover-regions') || !this.map.getLayer('hover-countries')) return null;
         const regions = this.map.queryRenderedFeatures(point, { layers: ['hover-regions'] });
         const countries = this.map.queryRenderedFeatures(point, { layers: ['hover-countries'] });
 

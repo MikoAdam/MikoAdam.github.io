@@ -482,7 +482,7 @@ main {
 .color-swatch {
     width: 20px;
     height: 20px;
-    border-radius: 4px;
+    border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;
     transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1022,24 +1022,23 @@ main {
 /* MapLibre Marker uses transform on .map-effect — never set transform there! */
 
 .fx-explosion svg { animation: fx-burst 0.5s ease-out forwards; }
-.fx-battle svg { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-battle svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-bombing svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-fire svg { animation: fx-flicker 0.8s ease-in-out infinite alternate; }
-.fx-skull svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+.fx-skull svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-nuke svg { animation: fx-nuke-glow 3s ease-in-out infinite; }
 .fx-tank svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-troops svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-plane svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-naval svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-oil svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-factory svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-port svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-flag svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-capital svg { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-capital svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-shield svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-treaty svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-uprising svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
-.fx-occupation svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+.fx-uprising svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-occupation svg { animation: fx-appear 0.35s ease-out forwards; }
 
 @keyframes fx-burst {
     0%   { opacity: 0; transform: scale(0.2); }
