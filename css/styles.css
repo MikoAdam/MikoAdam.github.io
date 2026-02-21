@@ -499,8 +499,16 @@ main {
     box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
 }
 
-.color-swatch-wheel {
-    background: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) !important;
+.color-swatch-custom {
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px dashed #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #888;
+    line-height: 1;
 }
 
 /* Arrow animation pills */

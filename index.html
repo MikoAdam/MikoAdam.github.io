@@ -234,7 +234,6 @@ zoom: Germany"></textarea>
     <div class="context-menu-header" id="menuTitle">Select</div>
 
     <!-- Color Palette -->
-    <div class="context-menu-section">Color</div>
     <div class="color-palette" id="colorPalette"></div>
     <input type="color" id="customColorPicker" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
 
@@ -275,27 +274,10 @@ zoom: Germany"></textarea>
             <span class="ctx-more-btn" data-panel="arrowOpts">&#9662;</span>
         </div>
         <div class="ctx-options" id="arrowOpts">
-            <div class="ctx-opt-label">Animation</div>
-            <div class="arrow-anim-pills">
-                <button class="arrow-anim-pill selected" data-anim="none">none</button>
-                <button class="arrow-anim-pill" data-anim="draw">draw</button>
-                <button class="arrow-anim-pill" data-anim="fade">fade</button>
-                <button class="arrow-anim-pill" data-anim="pulse">pulse</button>
-            </div>
-            <div class="ctx-opt-label">Curve</div>
+            <div class="ctx-opt-label">Draw duration (ms)</div>
             <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowCurveRange" min="-0.5" max="0.5" step="0.05" value="0.15">
-                <span class="ctx-range-value">0.15</span>
-            </div>
-            <div class="ctx-opt-label">Shaft width</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowWidthRange" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
-            </div>
-            <div class="ctx-opt-label">Head size</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowHeadSizeRange" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
+                <input type="range" class="ctx-range" id="arrowDurationRange" min="200" max="3000" step="100" value="800">
+                <span class="ctx-range-value">800</span>
             </div>
         </div>
 

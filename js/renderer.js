@@ -640,10 +640,10 @@ class MapRenderer {
         this.addArrow(fromCenter, toCenter, color, curve, { fromName, toName }, width, headSize);
     }
 
-    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null, animation = 'none') {
+    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null, animation = 'none', drawDuration = 800) {
         this.initArrowCanvas();
         this.initArrowDragEditing();
-        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1 };
+        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1, drawDuration };
         this.arrows.push(arrow);
         // Always animate drawing from start point when first placed
         arrow.animation = 'draw';
@@ -656,7 +656,7 @@ class MapRenderer {
     }
 
     _animateArrow(arrow, onComplete) {
-        const duration = arrow.animation === 'draw' ? 800 : arrow.animation === 'fade' ? 600 : 500;
+        const duration = arrow.drawDuration || 800;
         const start = performance.now();
         arrow.animProgress = 0;
         const tick = (now) => {

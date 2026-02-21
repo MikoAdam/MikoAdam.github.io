@@ -29,7 +29,7 @@ class ContextMenu {
         this._flowCurve = 0.15;
         this._flowWidth = 1;
         this._flowHeadSize = 1;
-        this._flowAnimation = 'none';
+        this._flowDuration = 800;
 
         // Expanded sections persistence
         this._expandedSections = JSON.parse(localStorage.getItem('poc-ctx-sections') || '{}');
@@ -62,11 +62,12 @@ class ContextMenu {
             palette.appendChild(swatch);
         });
 
-        // Color wheel swatch — opens native color picker
-        const wheelSwatch = document.createElement('div');
-        wheelSwatch.className = 'color-swatch color-swatch-wheel';
-        wheelSwatch.title = 'Custom color';
-        wheelSwatch.addEventListener('click', (e) => {
+        // Custom color "+" button — inline at end of swatches
+        const customBtn = document.createElement('div');
+        customBtn.className = 'color-swatch color-swatch-custom';
+        customBtn.title = 'Custom color';
+        customBtn.textContent = '+';
+        customBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const picker = document.getElementById('customColorPicker');
             if (picker) {
@@ -74,7 +75,7 @@ class ContextMenu {
                 picker.click();
             }
         });
-        palette.appendChild(wheelSwatch);
+        palette.appendChild(customBtn);
 
         // Listen for color picker changes
         const picker = document.getElementById('customColorPicker');
@@ -82,11 +83,13 @@ class ContextMenu {
             picker.addEventListener('input', (e) => {
                 const hex = e.target.value;
                 this._lastCustomColor = hex;
-                const wheelEl = document.querySelector('.color-swatch-wheel');
-                if (wheelEl) {
-                    wheelEl.style.background = hex;
+                const customEl = document.querySelector('.color-swatch-custom');
+                if (customEl) {
+                    customEl.style.background = hex;
+                    customEl.style.color = '#fff';
+                    customEl.textContent = '';
                 }
-                this.selectColor(hex, wheelEl);
+                this.selectColor(hex, customEl);
             });
         }
     }
@@ -605,13 +608,9 @@ class ContextMenu {
         this.close();
         if (!this.selectedFeature && !this.clickLngLat) return;
 
-        // Read options from arrow panel if it was open
-        const curveEl = document.getElementById('arrowCurveRange');
-        const curve = curveEl ? parseFloat(curveEl.value) : 0.15;
-        const widthEl = document.getElementById('arrowWidthRange');
-        const width = widthEl ? parseFloat(widthEl.value) : 1;
-        const headEl = document.getElementById('arrowHeadSizeRange');
-        const headSize = headEl ? parseFloat(headEl.value) : 1;
+        // Read draw duration from arrow panel
+        const durationEl = document.getElementById('arrowDurationRange');
+        const duration = durationEl ? parseInt(durationEl.value) : 800;
 
         let fromScript, fromLabel, fromCoord;
         if (this.selectedFeature) {
@@ -631,12 +630,10 @@ class ContextMenu {
         this._flowFromCoord = fromCoord || null;
         this._flowFromLabel = fromLabel;
         this._flowColor = this.selectedColor;
-        this._flowCurve = curve;
-        this._flowWidth = width;
-        this._flowHeadSize = headSize;
-        // Read arrow animation from pills
-        const animPill = document.querySelector('#arrowOpts .arrow-anim-pill.selected');
-        this._flowAnimation = animPill ? animPill.dataset.anim : 'none';
+        this._flowCurve = 0.15;
+        this._flowWidth = 1;
+        this._flowHeadSize = 1;
+        this._flowDuration = duration;
 
         const indicator = document.getElementById('attackIndicator');
         if (indicator) {
@@ -704,20 +701,12 @@ class ContextMenu {
             const curve = this._flowCurve;
             const width = this._flowWidth;
             const headSize = this._flowHeadSize;
-            const animation = this._flowAnimation || 'none';
+            const duration = this._flowDuration || 800;
             let line = `attack: ${this._flowFrom}, ${toScript}, ${color}`;
-            const hasCustomCurve = Math.abs(curve - 0.15) > 0.01;
-            const hasCustomWidth = Math.abs(width - 1) > 0.01;
-            const hasCustomHead = Math.abs(headSize - 1) > 0.01;
-            const hasAnim = animation !== 'none';
-            if (hasCustomCurve || hasCustomWidth || hasCustomHead || hasAnim) line += `, ${curve.toFixed(2)}`;
-            if (hasCustomWidth || hasCustomHead || hasAnim) line += `, ${width.toFixed(2)}`;
-            if (hasCustomHead || hasAnim) line += `, ${headSize.toFixed(2)}`;
-            if (hasAnim) line += `, ${animation}`;
             this.editor.insert(line);
             if (fromCoord && toCoordResolved) {
                 renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
-                    { fromName: this._flowFromLabel, toName: toScript }, width, headSize, animation);
+                    { fromName: this._flowFromLabel, toName: toScript }, width, headSize, 'none', duration);
             }
         } else if (this._flowType === 'line') {
             this.editor.insert(`line: ${this._flowFrom}, ${toScript}, ${color}`);
@@ -745,7 +734,7 @@ class ContextMenu {
         this._flowCurve = 0.15;
         this._flowWidth = 1;
         this._flowHeadSize = 1;
-        this._flowAnimation = 'none';
+        this._flowDuration = 800;
         const indicator = document.getElementById('attackIndicator');
         if (indicator) indicator.style.display = 'none';
         this.close();
