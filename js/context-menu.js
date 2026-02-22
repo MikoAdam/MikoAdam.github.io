@@ -66,45 +66,48 @@ class ContextMenu {
         const customBtn = document.createElement('button');
         customBtn.className = 'color-picker-btn';
         customBtn.innerHTML = '<span class="color-picker-preview"></span> Pick color';
-        customBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const picker = document.getElementById('customColorPicker');
-            if (picker) {
-                picker.value = this._lastCustomColor || '#ff0000';
-                picker.click();
-            }
-        });
-        palette.appendChild(customBtn);
 
-        // Listen for color picker changes
-        const picker = document.getElementById('customColorPicker');
-        if (picker) {
-            picker.addEventListener('input', (e) => {
-                const hex = e.target.value;
-                this._lastCustomColor = hex;
-                // Update preview circle
-                const preview = customBtn.querySelector('.color-picker-preview');
-                if (preview) preview.style.background = hex;
-                this.selectColor(hex, null);
-                // Deselect all preset swatches
-                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-                // Show done button when custom color is picked
-                if (doneBtn) doneBtn.style.display = '';
-            });
-        }
+        // Inline sub-panel: visible <input type="color"> + Done button
+        const subPanel = document.createElement('div');
+        subPanel.className = 'color-picker-subpanel';
+        subPanel.style.display = 'none';
 
-        // Done button — visible after picking a custom color, always visible in edit modes
-        const doneBtn = document.createElement('div');
-        doneBtn.className = 'context-menu-item ctx-done-btn';
-        doneBtn.dataset.action = 'close';
-        doneBtn.innerHTML = '<span class="icon">&#10003;</span> Done';
-        doneBtn.style.display = 'none';
+        // Create a visible color input inside the sub-panel
+        const visiblePicker = document.createElement('input');
+        visiblePicker.type = 'color';
+        visiblePicker.className = 'color-picker-visible';
+        visiblePicker.value = '#ff0000';
+
+        const doneBtn = document.createElement('button');
+        doneBtn.className = 'color-picker-done-btn';
+        doneBtn.textContent = 'Done';
         doneBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.close();
+            subPanel.style.display = 'none';
         });
-        palette.parentNode.insertBefore(doneBtn, palette.nextSibling);
-        this._colorDoneBtn = doneBtn;
+
+        subPanel.appendChild(visiblePicker);
+        subPanel.appendChild(doneBtn);
+
+        customBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = subPanel.style.display !== 'none';
+            subPanel.style.display = isOpen ? 'none' : 'flex';
+            if (!isOpen) visiblePicker.value = this._lastCustomColor || '#ff0000';
+        });
+
+        palette.appendChild(customBtn);
+        palette.appendChild(subPanel);
+
+        // Listen for visible color picker changes
+        visiblePicker.addEventListener('input', (e) => {
+            const hex = e.target.value;
+            this._lastCustomColor = hex;
+            const preview = customBtn.querySelector('.color-picker-preview');
+            if (preview) preview.style.background = hex;
+            this.selectColor(hex, null);
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        });
     }
 
     setupAnimationPills() {
@@ -389,10 +392,6 @@ class ContextMenu {
         this._setVisible('.ctx-section-arrow-edit', editingArrow);
         this._setVisible('.ctx-section-effect-edit', editingEffect);
 
-        // Show color Done button in edit modes (arrow/effect), hide in normal mode
-        if (this._colorDoneBtn) {
-            this._colorDoneBtn.style.display = (editingArrow || editingEffect) ? '' : 'none';
-        }
 
         // Country is always the default action (Enter key). Region shows additionally when available.
         const showCountry = hasFeature && !inFlow && !editingArrow && !editingEffect;
@@ -519,7 +518,6 @@ class ContextMenu {
         this._selectedArrow = null;
         this._selectedEffectMarker = null;
         this.closeAllPanels();
-        if (this._colorDoneBtn) this._colorDoneBtn.style.display = 'none';
     }
 
     // ─── Selection ───

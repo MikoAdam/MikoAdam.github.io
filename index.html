@@ -125,13 +125,10 @@ zoom: Germany"></textarea>
                 <p>Occupied: <code>region: Name, Country, color, occupied</code></p>
 
                 <h3>Attack Arrows</h3>
-                <p><code>attack: From, To, color</code></p>
-                <p>With curve: <code>attack: Germany, France, red, 0.30</code></p>
-                <p>With width: <code>attack: Germany, France, red, 0.15, 2</code></p>
-                <p>With head size: <code>attack: Germany, France, red, 0.15, 1, 2.5</code></p>
-                <p>Animated: <code>attack: Germany, France, red, 0.15, 1, 1, draw</code></p>
-                <p>Animations: <code>draw</code>, <code>fade</code>, <code>pulse</code></p>
-                <p>Coordinates: <code>attack: 52.5 13.4, 48.8 2.3, red</code></p>
+                <p><code>attack: from lat lng, to lat lng, color name</code></p>
+                <p>Full: <code>attack: from 52.50 13.40, to 48.85 2.35, color red, curve 0.15, width 1.00, head 1.00, dur 800</code></p>
+                <p>Country names: <code>attack: from Germany, to France, color red</code></p>
+                <p>Legacy: <code>attack: Germany, France, red, 0.15, 1, 1</code></p>
 
                 <h3>Connection Lines</h3>
                 <p><code>line: Germany, France, blue</code></p>
@@ -235,7 +232,6 @@ zoom: Germany"></textarea>
 
     <!-- Color Palette -->
     <div class="color-palette" id="colorPalette"></div>
-    <input type="color" id="customColorPicker" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
 
     <!-- Animation Pills (hidden for ocean clicks) -->
     <div class="ctx-section-anim">

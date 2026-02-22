@@ -57,7 +57,8 @@ class ScriptExecutor {
                     const arrow = this.renderer.addArrow(
                         atkCoords.from, atkCoords.to, color,
                         cmd.curve ?? 0.15, { fromName: atkCoords.fromName, toName: atkCoords.toName },
-                        cmd.width ?? 1, cmd.headSize ?? null, cmd.animation || 'none'
+                        cmd.width ?? 1, cmd.headSize ?? null, cmd.animation || 'none',
+                        cmd.drawDuration || 800
                     );
                     if (arrow && cmd.scriptLine !== undefined) arrow.scriptLine = cmd.scriptLine;
                 }

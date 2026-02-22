@@ -543,6 +543,49 @@ main {
     background: rgba(74, 222, 128, 0.15) !important;
 }
 
+/* Color picker sub-panel (inline, opens below "Pick color" button) */
+.color-picker-subpanel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+    padding: 6px 4px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid #3a3a50;
+}
+
+.color-picker-visible {
+    width: 40px;
+    height: 28px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 0;
+    cursor: pointer;
+    background: none;
+    flex-shrink: 0;
+}
+
+.color-picker-done-btn {
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    border: 1px solid #4ade80;
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+
+.color-picker-done-btn:hover {
+    background: rgba(74, 222, 128, 0.3);
+    color: #fff;
+}
+
 /* Arrow animation pills */
 .arrow-anim-pills {
     display: flex;

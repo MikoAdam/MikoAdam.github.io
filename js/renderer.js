@@ -658,17 +658,18 @@ class MapRenderer {
 
     /**
      * Generate script line text from an arrow object.
-     * Format: attack: fromLat fromLng, toLat toLng, color, curve, width, headSize
+     * Format: attack: from lat lng, to lat lng, color name, curve 0.15, width 1.00, head 1.00, dur 800
      */
     arrowToScript(arrow) {
         const fromLat = arrow.from[1].toFixed(2), fromLng = arrow.from[0].toFixed(2);
         const toLat = arrow.to[1].toFixed(2), toLng = arrow.to[0].toFixed(2);
-        const colorName = Object.entries(CONFIG.colors).find(([, hex]) => hex === arrow.color);
-        const color = colorName ? colorName[0] : arrow.color;
+        const colorEntry = Object.entries(CONFIG.colors).find(([, hex]) => hex === arrow.color);
+        const color = colorEntry ? colorEntry[0] : arrow.color;
         const curve = (arrow.curve || 0.15).toFixed(2);
         const width = (arrow.width || 1).toFixed(2);
-        const headSize = (arrow.headSize ?? arrow.width ?? 1).toFixed(2);
-        return `attack: ${fromLat} ${fromLng}, ${toLat} ${toLng}, ${color}, ${curve}, ${width}, ${headSize}`;
+        const head = (arrow.headSize ?? arrow.width ?? 1).toFixed(2);
+        const dur = Math.round(arrow.drawDuration || 800);
+        return `attack: from ${fromLat} ${fromLng}, to ${toLat} ${toLng}, color ${color}, curve ${curve}, width ${width}, head ${head}, dur ${dur}`;
     }
 
     _animateArrow(arrow, onComplete) {
