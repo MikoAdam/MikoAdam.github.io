@@ -474,6 +474,38 @@ main {
 
 .color-palette {
     padding: 4px 10px 6px;
+}
+
+/* Active color indicator */
+.color-active-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 3px 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    border: 1px solid #2a2a3a;
+}
+
+.color-active-preview {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(0,0,0,0.4);
+}
+
+.color-active-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #ccc;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Swatch row */
+.color-swatch-row {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
@@ -482,7 +514,7 @@ main {
 .color-swatch {
     width: 20px;
     height: 20px;
-    border-radius: 4px;
+    border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;
     transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
@@ -497,6 +529,166 @@ main {
 .color-swatch.selected {
     border-color: #fff;
     box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+/* History row — full width */
+.color-history-row {
+    display: flex;
+    gap: 3px;
+    margin-top: 5px;
+    padding-top: 4px;
+    border-top: 1px solid #2a2a3a;
+}
+
+.color-history-swatch {
+    width: 16px;
+    height: 16px;
+}
+
+.color-history-row::before {
+    content: 'Recent';
+    font-size: 8px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    align-self: center;
+    margin-right: 2px;
+    flex-shrink: 0;
+}
+
+/* "+" toggle for custom color panel */
+.color-picker-toggle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px dashed #555;
+    background: transparent;
+    color: #888;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.12s;
+    flex-shrink: 0;
+}
+
+.color-picker-toggle:hover {
+    border-color: #667eea;
+    color: #ddd;
+}
+
+.color-picker-toggle.open {
+    border-style: solid;
+    border-color: #667eea;
+    color: #667eea;
+    transform: rotate(45deg);
+}
+
+/* Done button in edit modes */
+.ctx-done-btn {
+    justify-content: center;
+    font-weight: 600;
+    color: #4ade80 !important;
+}
+
+.ctx-done-btn:hover {
+    background: rgba(74, 222, 128, 0.15) !important;
+}
+
+/* Custom color panel: 2D area + hue slider + hex input */
+.color-custom-panel {
+    padding: 6px 10px 8px;
+    border-top: 1px solid #2a2a3a;
+}
+
+.color-sl-canvas {
+    width: 100%;
+    aspect-ratio: 3 / 1;
+    border-radius: 4px;
+    cursor: crosshair;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.color-hue-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    outline: none;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+
+.color-hue-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #222;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    cursor: pointer;
+}
+
+.color-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.color-hex-input {
+    flex: 1;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #3a3a50;
+    border-radius: 4px;
+    color: #ccc;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    outline: none;
+    width: 0;
+    min-width: 0;
+}
+
+.color-hex-input:focus {
+    border-color: #667eea;
+}
+
+/* Arrow animation pills */
+.arrow-anim-pills {
+    display: flex;
+    gap: 4px;
+    padding: 2px 0 6px;
+}
+
+.arrow-anim-pill {
+    flex: 1;
+    padding: 3px 0;
+    font-size: 9px;
+    border: 1px solid #444;
+    background: transparent;
+    color: #aaa;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+
+.arrow-anim-pill:hover {
+    border-color: #667eea;
+    color: #fff;
+}
+
+.arrow-anim-pill.selected {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: #667eea;
+    color: #fff;
 }
 
 .context-menu-item {
@@ -988,24 +1180,23 @@ main {
 /* MapLibre Marker uses transform on .map-effect — never set transform there! */
 
 .fx-explosion svg { animation: fx-burst 0.5s ease-out forwards; }
-.fx-battle svg { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-battle svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-bombing svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-fire svg { animation: fx-flicker 0.8s ease-in-out infinite alternate; }
-.fx-skull svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+.fx-skull svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-nuke svg { animation: fx-nuke-glow 3s ease-in-out infinite; }
 .fx-tank svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-troops svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-plane svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-naval svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-oil svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-factory svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-port svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-flag svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-capital svg { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-capital svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-shield svg { animation: fx-appear 0.35s ease-out forwards; }
 .fx-treaty svg { animation: fx-appear 0.35s ease-out forwards; }
-.fx-uprising svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
-.fx-occupation svg { animation: fx-fade-pulse 3s ease-in-out infinite; }
+.fx-uprising svg { animation: fx-appear 0.35s ease-out forwards; }
+.fx-occupation svg { animation: fx-appear 0.35s ease-out forwards; }
 
 @keyframes fx-burst {
     0%   { opacity: 0; transform: scale(0.2); }

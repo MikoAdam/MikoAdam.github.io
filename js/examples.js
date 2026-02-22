@@ -38,7 +38,7 @@ wait: 1s
 # Serbia opposes
 serbia: red, pulse
 wait: 500ms
-effect: 44.8, 20.5, troops, red
+effect: 44.8, 20.5, battle, red
 wait: 1s
 
 bubble: 47, 12, "Croatia and Serbia clash over Krajina region", red
@@ -550,7 +550,7 @@ wait: 1s
 
 effect: 55.7, 37.6, tank, red, 1.5
 wait: 300ms
-effect: 59.9, 30.3, troops, red
+effect: 59.9, 30.3, battle, red
 wait: 300ms
 effect: 48.5, 35, tank, red
 wait: 1s
@@ -596,7 +596,7 @@ wait: 1s
 
 effect: 51.5, 36, tank, blue, 1.5
 wait: 300ms
-effect: 50, 30, troops, blue
+effect: 50, 30, battle, blue
 wait: 1s
 
 bubble: 56, 10, "Soviet counter-offensive pushes westward", blue

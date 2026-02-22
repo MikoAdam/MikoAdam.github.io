@@ -21,6 +21,7 @@ class MapRenderer {
         this.legendEntries = [];
         this.legendElement = null;
         this._coloredFeatures = []; // Track colored features for style switch
+        this.hoverSourcesReady = false; // Track if hover sources are loaded
     }
 
     hideClutter() {
@@ -186,7 +187,19 @@ class MapRenderer {
             this.map.on('load', () => {
                 this.hideClutter();
                 this.setupHoverLayers();
-                resolve();
+                // Wait for setupHoverLayers' sourcedata tracking to mark ready
+                const checkInterval = setInterval(() => {
+                    if (this.hoverSourcesReady) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 50);
+                // Fallback: resolve after 3s no matter what
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    this.hoverSourcesReady = true;
+                    resolve();
+                }, 3000);
             });
         });
     }
@@ -325,6 +338,8 @@ class MapRenderer {
     setupHoverLayers() {
         if (!this.geoData.countries) return;
 
+        this.hoverSourcesReady = false;
+
         const currentCenter = this.map.getCenter();
         const currentZoom = this.map.getZoom();
 
@@ -355,6 +370,29 @@ class MapRenderer {
         }
 
         this.map.jumpTo({ center: currentCenter, zoom: currentZoom });
+
+        // Wait for both hover sources to be indexed before marking ready
+        let sourcesLoaded = 0;
+        const checkReady = () => {
+            sourcesLoaded++;
+            if (sourcesLoaded >= 2) {
+                this.map.off('sourcedata', onSourceData);
+                this.hoverSourcesReady = true;
+            }
+        };
+        const onSourceData = (e) => {
+            if (e.isSourceLoaded && (e.sourceId === 'hover-countries' || e.sourceId === 'hover-regions')) {
+                checkReady();
+            }
+        };
+        this.map.on('sourcedata', onSourceData);
+        // Fallback: mark ready after idle
+        this.map.once('idle', () => {
+            if (sourcesLoaded < 2) {
+                this.map.off('sourcedata', onSourceData);
+                this.hoverSourcesReady = true;
+            }
+        });
 
         const popup = new maplibregl.Popup({
             closeButton: false,
@@ -602,11 +640,54 @@ class MapRenderer {
         this.addArrow(fromCenter, toCenter, color, curve, { fromName, toName }, width, headSize);
     }
 
-    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null) {
+    addArrow(from, to, color, curve = 0.15, meta = {}, width = 1, headSize = null, animation = 'none', drawDuration = 800) {
         this.initArrowCanvas();
         this.initArrowDragEditing();
-        this.arrows.push({ from, to, color, curve, meta, width, headSize: headSize ?? width });
-        this.renderArrows();
+        const arrow = { from, to, color, curve, meta, width, headSize: headSize ?? width, animation, animProgress: 1, drawDuration, scriptLine: -1 };
+        this.arrows.push(arrow);
+        // Always animate drawing from start point when first placed
+        arrow.animation = 'draw';
+        arrow.animProgress = 0;
+        this._animateArrow(arrow, () => {
+            // After draw-in completes, set to the intended animation (or none)
+            arrow.animation = animation;
+            arrow.animProgress = 1;
+        });
+        return arrow;
+    }
+
+    /**
+     * Generate script line text from an arrow object.
+     * Format: attack: from lat lng, to lat lng, color name, curve 0.15, width 1.00, head 1.00, dur 800
+     */
+    arrowToScript(arrow) {
+        const fromLat = arrow.from[1].toFixed(2), fromLng = arrow.from[0].toFixed(2);
+        const toLat = arrow.to[1].toFixed(2), toLng = arrow.to[0].toFixed(2);
+        const colorEntry = Object.entries(CONFIG.colors).find(([, hex]) => hex === arrow.color);
+        const color = colorEntry ? colorEntry[0] : arrow.color;
+        const curve = (arrow.curve || 0.15).toFixed(2);
+        const width = (arrow.width || 1).toFixed(2);
+        const head = (arrow.headSize ?? arrow.width ?? 1).toFixed(2);
+        const dur = Math.round(arrow.drawDuration || 800);
+        return `attack: from ${fromLat} ${fromLng}, to ${toLat} ${toLng}, color ${color}, curve ${curve}, width ${width}, head ${head}, dur ${dur}`;
+    }
+
+    _animateArrow(arrow, onComplete) {
+        const duration = arrow.drawDuration || 800;
+        const start = performance.now();
+        arrow.animProgress = 0;
+        const tick = (now) => {
+            const t = Math.min(1, (now - start) / duration);
+            // Ease out cubic
+            arrow.animProgress = 1 - Math.pow(1 - t, 3);
+            this.renderArrows();
+            if (t < 1) {
+                requestAnimationFrame(tick);
+            } else if (onComplete) {
+                onComplete();
+            }
+        };
+        requestAnimationFrame(tick);
     }
 
     renderArrows() {
@@ -694,6 +775,22 @@ class MapRenderer {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 5) return;
 
+        const anim = arrow.animation || 'none';
+        const prog = arrow.animProgress ?? 1;
+
+        // Fade animation — control global alpha
+        if (anim === 'fade' && prog < 1) {
+            ctx.save();
+            ctx.globalAlpha = prog;
+        }
+
+        // Pulse animation — add glow that fades out
+        if (anim === 'pulse' && prog < 1) {
+            ctx.save();
+            ctx.shadowColor = arrow.color;
+            ctx.shadowBlur = 20 * (1 - prog);
+        }
+
         // Perpendicular for curve
         const nx = -dy / dist;
         const ny = dx / dist;
@@ -742,33 +839,48 @@ class MapRenderer {
         const tpx = -ty; // perpendicular
         const tpy = tx;
 
-        // ── Shaft ──
-        const shaftEnd = bPt(tEnd);
-
+        // ── Shaft — extends all the way to the tip ──
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(cp.x, cp.y, shaftEnd.x, shaftEnd.y);
+        ctx.quadraticCurveTo(cp.x, cp.y, p2.x, p2.y);
         ctx.strokeStyle = arrow.color;
         ctx.lineWidth = shaftW;
         ctx.lineCap = 'round';
+        // Draw animation — reveal the shaft progressively using lineDash
+        if (anim === 'draw' && prog < 1) {
+            const totalLen = dist * 1.3; // approximate bezier arc length
+            ctx.setLineDash([totalLen * prog, totalLen]);
+        }
         ctx.stroke();
         ctx.restore();
 
-        // ── Arrowhead: filled triangle touching the tip ──
-        const base = bPt(tEnd);
-        const wingL = { x: base.x + tpx * headHalfW, y: base.y + tpy * headHalfW };
-        const wingR = { x: base.x - tpx * headHalfW, y: base.y - tpy * headHalfW };
+        // ── Arrowhead: open V-shape (two stroked lines from tip to wings) ──
+        // For draw animation, only show head when progress > 0.7
+        const headAlpha = anim === 'draw' ? Math.max(0, (prog - 0.7) / 0.3) : 1;
+        if (headAlpha > 0) {
+            const base = bPt(tEnd);
+            const wingL = { x: base.x + tpx * headHalfW, y: base.y + tpy * headHalfW };
+            const wingR = { x: base.x - tpx * headHalfW, y: base.y - tpy * headHalfW };
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(p2.x, p2.y);       // tip
-        ctx.lineTo(wingL.x, wingL.y);  // left wing
-        ctx.lineTo(wingR.x, wingR.y);  // right wing
-        ctx.closePath();
-        ctx.fillStyle = arrow.color;
-        ctx.fill();
-        ctx.restore();
+            ctx.save();
+            if (headAlpha < 1) ctx.globalAlpha = (ctx.globalAlpha || 1) * headAlpha;
+            ctx.beginPath();
+            ctx.moveTo(wingL.x, wingL.y);
+            ctx.lineTo(p2.x, p2.y);       // tip
+            ctx.lineTo(wingR.x, wingR.y);
+            ctx.strokeStyle = arrow.color;
+            ctx.lineWidth = Math.max(shaftW, 2) * headScale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Restore animation contexts
+        if ((anim === 'fade' || anim === 'pulse') && prog < 1) {
+            ctx.restore();
+        }
     }
 
     clearAttackArrows() {
@@ -915,6 +1027,9 @@ class MapRenderer {
                 this._draggingHandle = null;
                 this._isDragging = false;
                 this.renderArrows();
+                // Notify about the edit so the script can be updated
+                const arrow = this.arrows[this._selectedArrowIdx];
+                if (arrow && this.onArrowEdited) this.onArrowEdited(arrow);
             }
         };
         canvas.addEventListener('mouseup', endDrag);
@@ -1268,6 +1383,8 @@ class MapRenderer {
     // ─── Query ───
 
     queryFeatures(point) {
+        if (!this.hoverSourcesReady) return null;
+        if (!this.map.getLayer('hover-regions') || !this.map.getLayer('hover-countries')) return null;
         const regions = this.map.queryRenderedFeatures(point, { layers: ['hover-regions'] });
         const countries = this.map.queryRenderedFeatures(point, { layers: ['hover-countries'] });
 

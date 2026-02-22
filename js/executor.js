@@ -43,7 +43,10 @@ class ScriptExecutor {
                 } else {
                     // Coordinate-based: use canvas line (curve=0, no arrowhead)
                     const coords = this._resolveEndpoints(cmd);
-                    if (coords) this.renderer.addArrow(coords.from, coords.to, color, 0, {}, 0.5);
+                    if (coords) {
+                        const arrow = this.renderer.addArrow(coords.from, coords.to, color, 0, {}, 0.5);
+                        if (arrow && cmd.scriptLine !== undefined) arrow.scriptLine = cmd.scriptLine;
+                    }
                 }
                 break;
             }
@@ -51,11 +54,13 @@ class ScriptExecutor {
             case 'attack': {
                 const atkCoords = this._resolveEndpoints(cmd);
                 if (atkCoords) {
-                    this.renderer.addArrow(
+                    const arrow = this.renderer.addArrow(
                         atkCoords.from, atkCoords.to, color,
                         cmd.curve ?? 0.15, { fromName: atkCoords.fromName, toName: atkCoords.toName },
-                        cmd.width ?? 1, cmd.headSize ?? null
+                        cmd.width ?? 1, cmd.headSize ?? null, cmd.animation || 'none',
+                        cmd.drawDuration || 800
                     );
+                    if (arrow && cmd.scriptLine !== undefined) arrow.scriptLine = cmd.scriptLine;
                 }
                 break;
             }

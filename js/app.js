@@ -38,6 +38,13 @@ class App {
         await this.renderer.init();
         this.executor = new ScriptExecutor(this.renderer, this.geoData);
         this.menu = new ContextMenu(this.editor, () => this.renderer.getZoom(), this);
+
+        // Sync arrow map edits back to script
+        this.renderer.onArrowEdited = (arrow) => {
+            if (arrow.scriptLine >= 0) {
+                this.editor.updateArrowLine(arrow.scriptLine, this.renderer.arrowToScript(arrow));
+            }
+        };
         this.setupEventHandlers();
         this.loadExamples();
 
@@ -379,14 +386,14 @@ class App {
             ctx.drawImage(this.renderer.arrowCanvas, 0, 0, width, height);
         }
 
-        // 2. Country name labels — use map.project() for accurate positioning
+        // 2. Country name labels — use DOM rect relative to map canvas for accurate positioning
         const mapRect = mapCanvas.getBoundingClientRect();
         this.renderer.labelMarkers.forEach(marker => {
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const x = screenPt.x * dpr;
-            const y = screenPt.y * dpr;
             const label = marker.getElement();
+            if (!label || !label.isConnected) return;
+            const labelRect = label.getBoundingClientRect();
+            const x = (labelRect.left + labelRect.width / 2 - mapRect.left) * dpr;
+            const y = (labelRect.top + labelRect.height / 2 - mapRect.top) * dpr;
             const fontSize = parseFloat(getComputedStyle(label).fontSize) * dpr;
 
             ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
@@ -405,23 +412,18 @@ class App {
         });
         ctx.textAlign = 'left';
 
-        // 3. Map symbols (DOM markers with SVG)
+        // 3. Map symbols (DOM markers with SVG) — use DOM rect relative to map canvas
         const symbolPromises = [];
         document.querySelectorAll('.map-effect').forEach(effectEl => {
-            // Find the marker that owns this element
-            const marker = this.renderer.markers.find(m => m.getElement() === effectEl);
-            if (!marker) return;
-
-            const lngLat = marker.getLngLat();
-            const screenPt = this.renderer.map.project([lngLat.lng, lngLat.lat]);
-            const sx = screenPt.x * dpr;
-            const sy = screenPt.y * dpr;
+            if (!effectEl.isConnected) return;
 
             const svgEl = effectEl.querySelector('svg');
             if (!svgEl) return;
 
-            // Get the computed size of the effect element
+            // Use DOM rect for accurate position relative to map canvas
             const effectRect = effectEl.getBoundingClientRect();
+            const sx = (effectRect.left + effectRect.width / 2 - mapRect.left) * dpr;
+            const sy = (effectRect.top + effectRect.height / 2 - mapRect.top) * dpr;
             const ew = effectRect.width * dpr;
             const eh = effectRect.height * dpr;
 
@@ -615,28 +617,165 @@ class App {
         if (!this.isRecording) return;
         const mapCanvas = this.renderer.map.getCanvas();
         const ctx = this.recordingCtx;
+        const width = this.recordingCanvas.width;
+        const height = this.recordingCanvas.height;
+        const dpr = window.devicePixelRatio || 1;
+
         ctx.drawImage(mapCanvas, 0, 0);
 
         // Attack arrows (canvas overlay)
         if (this.renderer.arrowCanvas) {
-            ctx.drawImage(this.renderer.arrowCanvas, 0, 0, this.recordingCanvas.width, this.recordingCanvas.height);
+            ctx.drawImage(this.renderer.arrowCanvas, 0, 0, width, height);
         }
 
+        // Country name labels — use DOM rect relative to map canvas
+        const mapRect = mapCanvas.getBoundingClientRect();
+        this.renderer.labelMarkers.forEach(marker => {
+            const label = marker.getElement();
+            if (!label || !label.isConnected) return;
+            const labelRect = label.getBoundingClientRect();
+            const x = (labelRect.left + labelRect.width / 2 - mapRect.left) * dpr;
+            const y = (labelRect.top + labelRect.height / 2 - mapRect.top) * dpr;
+            const fontSize = parseFloat(getComputedStyle(label).fontSize) * dpr;
+
+            ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            for (let ox = -2; ox <= 2; ox++) {
+                for (let oy = -2; oy <= 2; oy++) {
+                    ctx.fillText(label.textContent, x + ox * dpr, y + oy * dpr);
+                }
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label.textContent, x, y);
+        });
+        ctx.textAlign = 'left';
+
+        // Symbols — use DOM rect relative to map canvas, draw pre-cached images
+        if (!this._symbolImageCache) this._symbolImageCache = {};
+        document.querySelectorAll('.map-effect').forEach(effectEl => {
+            if (!effectEl.isConnected) return;
+            const effectRect = effectEl.getBoundingClientRect();
+            const sx = (effectRect.left + effectRect.width / 2 - mapRect.left) * dpr;
+            const sy = (effectRect.top + effectRect.height / 2 - mapRect.top) * dpr;
+            const ew = effectRect.width * dpr;
+            const eh = effectRect.height * dpr;
+            const color = getComputedStyle(effectEl).color || '#ef4444';
+            const name = effectEl.dataset.effectName;
+            const cacheKey = `${name}_${color}_${Math.round(ew)}`;
+
+            // Use cached image if available
+            if (this._symbolImageCache[cacheKey] && this._symbolImageCache[cacheKey].complete) {
+                ctx.drawImage(this._symbolImageCache[cacheKey], sx - ew / 2, sy - eh / 2, ew, eh);
+            } else if (!this._symbolImageCache[cacheKey]) {
+                // Start loading (will be available next frame)
+                const svgEl = effectEl.querySelector('svg');
+                if (!svgEl) return;
+                const svgClone = svgEl.cloneNode(true);
+                svgClone.setAttribute('width', ew);
+                svgClone.setAttribute('height', eh);
+                const svgStr = new XMLSerializer().serializeToString(svgClone).replace(/currentColor/g, color);
+                const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => URL.revokeObjectURL(url);
+                img.src = url;
+                this._symbolImageCache[cacheKey] = img;
+            }
+        });
+
+        // Bubbles — use DOM rect relative to map canvas
+        document.querySelectorAll('.map-bubble').forEach(bubble => {
+            const rect = bubble.getBoundingClientRect();
+            const bx = (rect.left - mapRect.left) * dpr;
+            const by = (rect.top - mapRect.top) * dpr;
+            const bw = rect.width * dpr;
+            const bh = rect.height * dpr;
+            const r = 10 * dpr;
+            ctx.fillStyle = getComputedStyle(bubble).backgroundColor || 'rgba(0,0,0,0.85)';
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, r);
+            ctx.fill();
+            ctx.strokeStyle = getComputedStyle(bubble).borderColor || 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1 * dpr;
+            ctx.stroke();
+            const textEl = bubble.querySelector('.bubble-text') || bubble;
+            ctx.font = `${13 * dpr}px "Space Grotesk", sans-serif`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(textEl.textContent, bx + 14 * dpr, by + bh / 2);
+        });
+
+        // Year overlay
+        const yearOverlay = document.getElementById('yearOverlay');
+        if (yearOverlay && yearOverlay.classList.contains('visible')) {
+            const yearText = yearOverlay.textContent;
+            const fontSize = 28 * dpr;
+            ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
+            const metrics = ctx.measureText(yearText);
+            const pad = 14 * dpr;
+            const px = 24 * dpr;
+            const py = 24 * dpr;
+            const pillW = metrics.width + pad * 2;
+            const pillH = fontSize + pad * 2;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+            ctx.beginPath();
+            ctx.roundRect(px, py, pillW, pillH, 50 * dpr);
+            ctx.fill();
+            ctx.strokeStyle = '#4cd964';
+            ctx.lineWidth = 2 * dpr;
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(yearText, px + pad, py + pillH / 2);
+        }
+
+        // Legend
+        const entries = this.renderer.legendEntries;
+        if (entries.length > 0) {
+            const rowH = 24 * dpr;
+            const padX = 14 * dpr;
+            const padY = 10 * dpr;
+            const swatchSize = 14 * dpr;
+            const gap = 8 * dpr;
+            const fontSize = 12 * dpr;
+            ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+            const maxLabelW = Math.max(...entries.map(e => ctx.measureText(e.label).width));
+            const boxW = padX + swatchSize + gap + maxLabelW + padX;
+            const boxH = padY + entries.length * rowH + padY;
+            const lx = width - boxW - 14 * dpr;
+            const ly = height - boxH - 50 * dpr;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(lx, ly, boxW, boxH, 8 * dpr);
+            ctx.fill();
+            entries.forEach((entry, i) => {
+                const ey = ly + padY + i * rowH;
+                ctx.fillStyle = entry.color;
+                ctx.fillRect(lx + padX, ey + (rowH - swatchSize) / 2, swatchSize, swatchSize);
+                ctx.fillStyle = '#ddd';
+                ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+                ctx.textBaseline = 'middle';
+                ctx.fillText(entry.label, lx + padX + swatchSize + gap, ey + rowH / 2);
+            });
+        }
+
+        // Attribution
         const isSatellite = document.getElementById('styleSelect').value === 'satellite';
-        const text = isSatellite ? '(c) NASA GIBS' : '(c) OpenFreeMap · Natural Earth';
-        ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-        const textWidth = ctx.measureText(text).width;
-        const padding = 8;
-        const x = this.recordingCanvas.width - textWidth - padding - 12;
-        const y = this.recordingCanvas.height - 12;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        const attrText = isSatellite ? '(c) NASA GIBS' : '(c) OpenFreeMap · Natural Earth';
+        const attrFontSize = 11 * dpr;
+        ctx.font = `${attrFontSize}px sans-serif`;
+        const attrW = ctx.measureText(attrText).width + 20 * dpr;
+        const attrX = width - attrW - 14 * dpr;
+        const attrY = height - 14 * dpr;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         ctx.beginPath();
-        ctx.roundRect(x - padding, y - 14, textWidth + padding * 2, 20, 4);
+        ctx.roundRect(attrX, attrY - 18 * dpr, attrW, 22 * dpr, 4 * dpr);
         ctx.fill();
-
         ctx.fillStyle = '#aaa';
-        ctx.fillText(text, x, y);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(attrText, attrX + 10 * dpr, attrY - 7 * dpr);
 
         requestAnimationFrame(() => this.drawRecordingFrame());
     }

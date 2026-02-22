@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pillars of Creation Maps</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -123,11 +125,10 @@ zoom: Germany"></textarea>
                 <p>Occupied: <code>region: Name, Country, color, occupied</code></p>
 
                 <h3>Attack Arrows</h3>
-                <p><code>attack: From, To, color</code></p>
-                <p>With curve: <code>attack: Germany, France, red, 0.30</code></p>
-                <p>With width: <code>attack: Germany, France, red, 0.15, 2</code></p>
-                <p>With head size: <code>attack: Germany, France, red, 0.15, 1, 2.5</code></p>
-                <p>Coordinates: <code>attack: 52.5 13.4, 48.8 2.3, red</code></p>
+                <p><code>attack: from lat lng, to lat lng, color name</code></p>
+                <p>Full: <code>attack: from 52.50 13.40, to 48.85 2.35, color red, curve 0.15, width 1.00, head 1.00, dur 800</code></p>
+                <p>Country names: <code>attack: from Germany, to France, color red</code></p>
+                <p>Legacy: <code>attack: Germany, France, red, 0.15, 1, 1</code></p>
 
                 <h3>Connection Lines</h3>
                 <p><code>line: Germany, France, blue</code></p>
@@ -137,7 +138,7 @@ zoom: Germany"></textarea>
                 <p><code>effect: lat, lng, name, color</code></p>
                 <p>With size: <code>effect: 52.5, 13.4, tank, green, 1.5</code></p>
                 <p>Combat: <code>explosion</code>, <code>battle</code>, <code>bombing</code>, <code>fire</code>, <code>skull</code>, <code>nuke</code></p>
-                <p>Military: <code>tank</code>, <code>troops</code>, <code>plane</code>, <code>naval</code></p>
+                <p>Military: <code>tank</code>, <code>plane</code>, <code>naval</code></p>
                 <p>Resources: <code>oil</code>, <code>factory</code>, <code>port</code></p>
                 <p>Political: <code>flag</code>, <code>capital</code>, <code>shield</code>, <code>treaty</code>, <code>uprising</code>, <code>occupation</code></p>
 
@@ -223,16 +224,13 @@ zoom: Germany"></textarea>
             <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ·
             <a href="https://naturalearthdata.com" target="_blank">Natural Earth</a>
         </div>
-    </div>
-</main>
 
-<!-- Context Menu -->
+<!-- Context Menu (inside map-container so it works in fullscreen) -->
 <div class="context-menu" id="contextMenu">
     <!-- Header -->
     <div class="context-menu-header" id="menuTitle">Select</div>
 
     <!-- Color Palette -->
-    <div class="context-menu-section">Color</div>
     <div class="color-palette" id="colorPalette"></div>
 
     <!-- Animation Pills (hidden for ocean clicks) -->
@@ -252,16 +250,15 @@ zoom: Germany"></textarea>
     <!-- ═══ NORMAL MODE ═══ -->
     <div class="ctx-section-normal">
 
-        <!-- Territory — only one shows at a time (region if available, else country) -->
-        <div class="context-menu-item ctx-default-action" id="menuColorRegion" data-action="addRegion" style="display:none">
-            <span class="icon">&#9638;</span>
-            <span id="regionLabel">Color region</span>
-            <span class="ctx-shortcut">Enter</span>
-        </div>
+        <!-- Territory — Country is the default action; Region shows additionally when available -->
         <div class="context-menu-item ctx-default-action ctx-needs-feature" id="menuColorCountry" data-action="addCountry">
             <span class="icon">&#9632;</span>
             <span id="countryLabel">Color country</span>
             <span class="ctx-shortcut">Enter</span>
+        </div>
+        <div class="context-menu-item" id="menuColorRegion" data-action="addRegion" style="display:none">
+            <span class="icon">&#9638;</span>
+            <span id="regionLabel">Color region</span>
         </div>
 
         <div class="context-menu-divider"></div>
@@ -273,20 +270,10 @@ zoom: Germany"></textarea>
             <span class="ctx-more-btn" data-panel="arrowOpts">&#9662;</span>
         </div>
         <div class="ctx-options" id="arrowOpts">
-            <div class="ctx-opt-label">Curve</div>
+            <div class="ctx-opt-label">Draw duration (ms)</div>
             <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowCurveRange" min="-0.5" max="0.5" step="0.05" value="0.15">
-                <span class="ctx-range-value">0.15</span>
-            </div>
-            <div class="ctx-opt-label">Shaft width</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowWidthRange" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
-            </div>
-            <div class="ctx-opt-label">Head size</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="arrowHeadSizeRange" min="0.5" max="3" step="0.25" value="1">
-                <span class="ctx-range-value">1.00</span>
+                <input type="range" class="ctx-range" id="arrowDurationRange" min="200" max="3000" step="100" value="800">
+                <span class="ctx-range-value">800</span>
             </div>
         </div>
 
@@ -423,17 +410,13 @@ zoom: Germany"></textarea>
                 <span class="icon">&#10005;</span> Clear symbols
             </div>
         </div>
+
     </div>
 
     <!-- ═══ ARROW EDIT MODE ═══ -->
     <div class="ctx-section-arrow-edit" style="display:none">
         <div class="ctx-options open" style="display:block">
-            <div class="ctx-opt-label">Curve</div>
-            <div class="ctx-range-row">
-                <input type="range" class="ctx-range" id="editArrowCurve" min="-0.5" max="0.5" step="0.05" value="0.15">
-                <span class="ctx-range-value">0.15</span>
-            </div>
-            <div class="ctx-opt-label">Shaft width</div>
+            <div class="ctx-opt-label">Width</div>
             <div class="ctx-range-row">
                 <input type="range" class="ctx-range" id="editArrowWidth" min="0.5" max="3" step="0.25" value="1">
                 <span class="ctx-range-value">1.00</span>
@@ -443,6 +426,11 @@ zoom: Germany"></textarea>
                 <input type="range" class="ctx-range" id="editArrowHeadSize" min="0.5" max="3" step="0.25" value="1">
                 <span class="ctx-range-value">1.00</span>
             </div>
+            <div class="ctx-opt-label">Draw duration (ms)</div>
+            <div class="ctx-range-row">
+                <input type="range" class="ctx-range" id="editArrowDuration" min="200" max="3000" step="100" value="800">
+                <span class="ctx-range-value">800</span>
+            </div>
         </div>
 
         <div class="context-menu-item" data-action="reverseArrow">
@@ -451,6 +439,10 @@ zoom: Germany"></textarea>
         <div class="context-menu-item context-menu-item-subtle" data-action="deleteArrow">
             <span class="icon">&#128465;</span> Delete arrow
             <span class="ctx-shortcut">Del</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item ctx-done-btn" data-action="close">
+            <span class="icon">&#10003;</span> Done
         </div>
     </div>
 
@@ -469,6 +461,10 @@ zoom: Germany"></textarea>
             <span class="icon">&#128465;</span> Delete symbol
             <span class="ctx-shortcut">Del</span>
         </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item ctx-done-btn" data-action="close">
+            <span class="icon">&#10003;</span> Done
+        </div>
     </div>
 
     <!-- ═══ FLOW COMPLETION MODE ═══ -->
@@ -485,6 +481,9 @@ zoom: Germany"></textarea>
         </div>
     </div>
 </div>
+
+    </div> <!-- .map-container -->
+</main>
 
 <!-- Scripts -->
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>

@@ -4,12 +4,18 @@
 
 class ScriptParser {
     parse(script) {
-        return script
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('#'))
-            .map(line => this.parseLine(line))
-            .filter(Boolean);
+        const lines = script.split('\n');
+        const commands = [];
+        for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const cmd = this.parseLine(trimmed);
+            if (cmd) {
+                cmd.scriptLine = i;
+                commands.push(cmd);
+            }
+        }
+        return commands;
     }
 
     parseLine(line) {
@@ -169,22 +175,29 @@ class ScriptParser {
     }
 
     /**
-     * Parse "From, To, color[, curve[, width]]" where From/To can be:
-     *   - Country name: Germany
-     *   - Coordinates:  52.5 13.4   (space-separated lat lng)
+     * Parse arrow line. Supports two formats:
+     * Named:      from 52.50 13.40, to 48.85 2.35, color red, curve 0.15, width 1.00, head 1.00, dur 800
+     * Positional:  Germany, France, red[, 0.15[, 1[, 1[, draw]]]]
+     * From/To can be country names or "lat lng" coordinates.
      */
     _parseArrowLine(rest, type) {
-        // Split on commas, but coordinates use spaces not commas
         const parts = rest.split(',').map(s => s.trim()).filter(Boolean);
+        if (parts.length < 2) return null;
+
+        // Detect named format by checking if first part starts with "from "
+        if (parts[0].match(/^from\s+/i)) {
+            return this._parseNamedArrowLine(parts, type);
+        }
+
+        // Legacy positional format
         if (parts.length < 3) return null;
 
         const parseEndpoint = (s) => {
-            // Check if it's space-separated coordinates: "52.5 13.4"
             const coords = s.match(/^(-?[\d.]+)\s+(-?[\d.]+)$/);
             if (coords) {
                 return { lat: parseFloat(coords[1]), lng: parseFloat(coords[2]) };
             }
-            return s; // country name string
+            return s;
         };
 
         const from = parseEndpoint(parts[0]);
@@ -197,6 +210,50 @@ class ScriptParser {
         if (parts[3] !== undefined) cmd.curve = parseFloat(parts[3]);
         if (parts[4] !== undefined) cmd.width = parseFloat(parts[4]);
         if (parts[5] !== undefined) cmd.headSize = parseFloat(parts[5]);
+        if (parts[6] !== undefined) {
+            const v = parts[6].trim().toLowerCase();
+            if (isNaN(v)) cmd.animation = v;
+            else cmd.drawDuration = parseInt(v);
+        }
+        if (parts[7] !== undefined) cmd.drawDuration = parseInt(parts[7]);
+        return cmd;
+    }
+
+    /**
+     * Parse named-param arrow format: from X, to Y, color C, curve N, width N, head N, dur N
+     */
+    _parseNamedArrowLine(parts, type) {
+        const cmd = { type };
+
+        const parseEndpoint = (s) => {
+            const coords = s.match(/^(-?[\d.]+)\s+(-?[\d.]+)$/);
+            if (coords) return { lat: parseFloat(coords[1]), lng: parseFloat(coords[2]) };
+            return s;
+        };
+
+        for (const part of parts) {
+            const p = part.trim();
+            let m;
+            if ((m = p.match(/^from\s+(.+)$/i))) {
+                cmd.from = parseEndpoint(m[1].trim());
+            } else if ((m = p.match(/^to\s+(.+)$/i))) {
+                cmd.to = parseEndpoint(m[1].trim());
+            } else if ((m = p.match(/^color\s+(.+)$/i))) {
+                cmd.color = m[1].trim();
+            } else if ((m = p.match(/^curve\s+([\d.+-]+)$/i))) {
+                cmd.curve = parseFloat(m[1]);
+            } else if ((m = p.match(/^width\s+([\d.]+)$/i))) {
+                cmd.width = parseFloat(m[1]);
+            } else if ((m = p.match(/^head\s+([\d.]+)$/i))) {
+                cmd.headSize = parseFloat(m[1]);
+            } else if ((m = p.match(/^dur\s+(\d+)$/i))) {
+                cmd.drawDuration = parseInt(m[1]);
+            } else if ((m = p.match(/^anim\s+(\w+)$/i))) {
+                cmd.animation = m[1].toLowerCase();
+            }
+        }
+
+        if (!cmd.from || !cmd.to || !cmd.color) return null;
         return cmd;
     }
 }

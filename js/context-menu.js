@@ -29,6 +29,7 @@ class ContextMenu {
         this._flowCurve = 0.15;
         this._flowWidth = 1;
         this._flowHeadSize = 1;
+        this._flowDuration = 800;
 
         // Expanded sections persistence
         this._expandedSections = JSON.parse(localStorage.getItem('poc-ctx-sections') || '{}');
@@ -48,6 +49,25 @@ class ContextMenu {
         const palette = document.getElementById('colorPalette');
         if (!palette) return;
         palette.innerHTML = '';
+
+        // ── Active color indicator bar ──
+        const activeBar = document.createElement('div');
+        activeBar.className = 'color-active-bar';
+        const activePreview = document.createElement('div');
+        activePreview.className = 'color-active-preview';
+        activePreview.style.background = CONFIG.colors.blue;
+        const activeLabel = document.createElement('span');
+        activeLabel.className = 'color-active-label';
+        activeLabel.textContent = 'blue';
+        activeBar.appendChild(activePreview);
+        activeBar.appendChild(activeLabel);
+        palette.appendChild(activeBar);
+        this._activePreview = activePreview;
+        this._activeLabel = activeLabel;
+
+        // ── Preset swatches ──
+        const swatchRow = document.createElement('div');
+        swatchRow.className = 'color-swatch-row';
         Object.entries(CONFIG.colors).forEach(([name, hex]) => {
             const swatch = document.createElement('div');
             swatch.className = 'color-swatch' + (name === 'blue' ? ' selected' : '');
@@ -58,7 +78,227 @@ class ContextMenu {
                 e.stopPropagation();
                 this.selectColor(name, swatch);
             });
-            palette.appendChild(swatch);
+            swatchRow.appendChild(swatch);
+        });
+
+        // "+" toggle
+        const customToggle = document.createElement('button');
+        customToggle.className = 'color-picker-toggle';
+        customToggle.textContent = '+';
+        customToggle.title = 'Custom color';
+        swatchRow.appendChild(customToggle);
+        palette.appendChild(swatchRow);
+
+        // ── History row (recently used custom colors) ──
+        const historyRow = document.createElement('div');
+        historyRow.className = 'color-history-row';
+        historyRow.style.display = 'none';
+        palette.appendChild(historyRow);
+        this._colorHistoryRow = historyRow;
+        this._colorHistory = JSON.parse(localStorage.getItem('poc-color-history') || '[]');
+        this._renderColorHistory();
+
+        // ── Custom color panel: 2D area + hue slider + hex input ──
+        const customPanel = document.createElement('div');
+        customPanel.className = 'color-custom-panel';
+        customPanel.style.display = 'none';
+
+        // Saturation-Lightness canvas (2D)
+        const slCanvas = document.createElement('canvas');
+        slCanvas.className = 'color-sl-canvas';
+        slCanvas.width = 220;
+        slCanvas.height = 100;
+        this._slCanvas = slCanvas;
+        this._currentHue = 0;
+        this._currentSat = 1;
+        this._currentLight = 0.5;
+
+        // Hue spectrum slider
+        const hueSlider = document.createElement('input');
+        hueSlider.type = 'range';
+        hueSlider.className = 'color-hue-slider';
+        hueSlider.min = 0;
+        hueSlider.max = 360;
+        hueSlider.value = 0;
+
+        // Preview + hex input row
+        const previewRow = document.createElement('div');
+        previewRow.className = 'color-preview-row';
+        const hexInput = document.createElement('input');
+        hexInput.type = 'text';
+        hexInput.className = 'color-hex-input';
+        hexInput.value = '#ff0000';
+        hexInput.maxLength = 7;
+        hexInput.placeholder = '#ff0000';
+        previewRow.appendChild(hexInput);
+
+        customPanel.appendChild(slCanvas);
+        customPanel.appendChild(hueSlider);
+        customPanel.appendChild(previewRow);
+        palette.parentNode.insertBefore(customPanel, palette.nextSibling);
+
+        // ── HSL helpers ──
+        const hslToHex = (h, s, l) => {
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = l - c / 2;
+            let r, g, b;
+            if (h < 60) { r = c; g = x; b = 0; }
+            else if (h < 120) { r = x; g = c; b = 0; }
+            else if (h < 180) { r = 0; g = c; b = x; }
+            else if (h < 240) { r = 0; g = x; b = c; }
+            else if (h < 300) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+            const toH = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+            return `#${toH(r)}${toH(g)}${toH(b)}`;
+        };
+
+        const drawSLCanvas = (hue) => {
+            const ctx = slCanvas.getContext('2d');
+            const w = slCanvas.width, h = slCanvas.height;
+            const imgData = ctx.createImageData(w, h);
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const sat = x / (w - 1);
+                    const light = 1 - y / (h - 1);
+                    const hex = hslToHex(hue, sat, light);
+                    const i = (y * w + x) * 4;
+                    imgData.data[i] = parseInt(hex.slice(1, 3), 16);
+                    imgData.data[i + 1] = parseInt(hex.slice(3, 5), 16);
+                    imgData.data[i + 2] = parseInt(hex.slice(5, 7), 16);
+                    imgData.data[i + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            // Draw crosshair at current position
+            const cx = Math.round(this._currentSat * (w - 1));
+            const cy = Math.round((1 - this._currentLight) * (h - 1));
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        };
+
+        const applyCustomColor = (hex) => {
+            this._lastCustomColor = hex;
+            hexInput.value = hex;
+            this.selectColor(hex, null);
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        };
+
+        const pickFromCanvas = (e) => {
+            const rect = slCanvas.getBoundingClientRect();
+            const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+            this._currentSat = x;
+            this._currentLight = 1 - y;
+            const hex = hslToHex(this._currentHue, this._currentSat, this._currentLight);
+            drawSLCanvas(this._currentHue);
+            applyCustomColor(hex);
+        };
+
+        // Canvas mouse interaction
+        let canvasDragging = false;
+        slCanvas.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            canvasDragging = true;
+            pickFromCanvas(e);
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (canvasDragging) pickFromCanvas(e);
+        });
+        document.addEventListener('mouseup', () => {
+            if (canvasDragging) canvasDragging = false;
+        });
+
+        // Toggle expand/collapse
+        customToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = customPanel.style.display !== 'none';
+            customPanel.style.display = isOpen ? 'none' : 'block';
+            customToggle.classList.toggle('open', !isOpen);
+            if (!isOpen) {
+                // Sync canvas internal size to actual display size
+                requestAnimationFrame(() => {
+                    const rect = slCanvas.getBoundingClientRect();
+                    slCanvas.width = Math.round(rect.width);
+                    slCanvas.height = Math.round(rect.height);
+                    drawSLCanvas(this._currentHue);
+                });
+            }
+        });
+
+        // Hue slider
+        hueSlider.addEventListener('input', (e) => {
+            e.stopPropagation();
+            this._currentHue = parseInt(e.target.value);
+            drawSLCanvas(this._currentHue);
+            applyCustomColor(hslToHex(this._currentHue, this._currentSat, this._currentLight));
+        });
+
+        // Hex input
+        hexInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                const v = hexInput.value.trim();
+                if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+            }
+            e.stopPropagation();
+        });
+        hexInput.addEventListener('blur', () => {
+            const v = hexInput.value.trim();
+            if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+        });
+        hexInput.addEventListener('click', (e) => e.stopPropagation());
+
+        // Initial draw
+        drawSLCanvas(0);
+    }
+
+    /** Call when a color is committed to the script (applied) */
+    _commitColorToHistory() {
+        const c = this.selectedColor;
+        if (c && c.startsWith('#') && !CONFIG.colors[c]) this._addColorHistory(c);
+    }
+
+    _addColorHistory(hex) {
+        if (!hex || !hex.startsWith('#')) return;
+        this._colorHistory = this._colorHistory.filter(c => c !== hex);
+        this._colorHistory.unshift(hex);
+        if (this._colorHistory.length > 8) this._colorHistory.pop();
+        localStorage.setItem('poc-color-history', JSON.stringify(this._colorHistory));
+        this._renderColorHistory();
+    }
+
+    _renderColorHistory() {
+        const row = this._colorHistoryRow;
+        if (!row) return;
+        row.innerHTML = '';
+        if (this._colorHistory.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+        row.style.display = 'flex';
+        this._colorHistory.forEach(hex => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch color-history-swatch';
+            swatch.style.background = hex;
+            swatch.title = hex;
+            swatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectColor(hex, null);
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                swatch.classList.add('selected');
+            });
+            row.appendChild(swatch);
         });
     }
 
@@ -95,6 +335,15 @@ class ContextMenu {
                 }
             }
 
+            // Arrow animation pill toggles
+            const arrowAnimPill = e.target.closest('.arrow-anim-pill');
+            if (arrowAnimPill) {
+                e.stopPropagation();
+                document.querySelectorAll('.arrow-anim-pill').forEach(p => p.classList.remove('selected'));
+                arrowAnimPill.classList.add('selected');
+                return;
+            }
+
             // Radio pill toggles
             const pill = e.target.closest('.ctx-radio-pill');
             if (pill) {
@@ -114,7 +363,7 @@ class ContextMenu {
                 const valueDisplay = e.target.closest('.ctx-range-row')?.querySelector('.ctx-range-value');
                 if (valueDisplay) valueDisplay.textContent = parseFloat(e.target.value).toFixed(2);
                 // Auto-apply when editing an existing arrow
-                if (this._selectedArrow && (e.target.id === 'editArrowCurve' || e.target.id === 'editArrowWidth' || e.target.id === 'editArrowHeadSize')) {
+                if (this._selectedArrow && (e.target.id === 'editArrowWidth' || e.target.id === 'editArrowHeadSize' || e.target.id === 'editArrowDuration')) {
                     this._autoApplyArrowEdit();
                 }
                 // Auto-apply when editing an existing effect's size
@@ -335,13 +584,15 @@ class ContextMenu {
         this._setVisible('.ctx-section-arrow-edit', editingArrow);
         this._setVisible('.ctx-section-effect-edit', editingEffect);
 
-        // Region vs Country: show one or the other, never both (eliminates redundancy)
-        this._setVisible('#menuColorRegion', isRegion && !inFlow && !editingArrow && !editingEffect);
-        this._setVisible('#menuColorCountry', hasFeature && !isRegion && !inFlow && !editingArrow && !editingEffect);
+
+        // Country is always the default action (Enter key). Region shows additionally when available.
+        const showCountry = hasFeature && !inFlow && !editingArrow && !editingEffect;
+        const showRegion = isRegion && !inFlow && !editingArrow && !editingEffect;
+        this._setVisible('#menuColorCountry', showCountry);
+        this._setVisible('#menuColorRegion', showRegion);
 
         this.element.querySelectorAll('.ctx-needs-feature').forEach(el => {
-            // Skip #menuColorCountry — already handled above
-            if (el.id === 'menuColorCountry') return;
+            if (el.id === 'menuColorCountry') return; // handled above
             el.style.display = hasFeature ? '' : 'none';
         });
 
@@ -380,12 +631,12 @@ class ContextMenu {
         // Pre-fill arrow edit controls
         if (editingArrow) {
             const a = arrowHit.arrow;
-            const editCurve = document.getElementById('editArrowCurve');
             const editWidth = document.getElementById('editArrowWidth');
             const editHead = document.getElementById('editArrowHeadSize');
-            if (editCurve) { editCurve.value = a.curve; editCurve.nextElementSibling.textContent = a.curve.toFixed(2); }
+            const editDuration = document.getElementById('editArrowDuration');
             if (editWidth) { editWidth.value = a.width || 1; editWidth.nextElementSibling.textContent = (a.width || 1).toFixed(2); }
             if (editHead) { editHead.value = a.headSize ?? (a.width || 1); editHead.nextElementSibling.textContent = (a.headSize ?? (a.width || 1)).toFixed(2); }
+            if (editDuration) { editDuration.value = a.drawDuration || 800; editDuration.nextElementSibling.textContent = (a.drawDuration || 800); }
             const colorName = Object.entries(CONFIG.colors).find(([, hex]) => hex === a.color);
             if (colorName) this.selectColor(colorName[0], document.querySelector(`.color-swatch[data-color="${colorName[0]}"]`));
         }
@@ -467,6 +718,10 @@ class ContextMenu {
         this.selectedColor = name;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         if (swatch) swatch.classList.add('selected');
+        // Update active color indicator bar
+        const hex = CONFIG.colors[name] || name;
+        if (this._activePreview) this._activePreview.style.background = hex;
+        if (this._activeLabel) this._activeLabel.textContent = CONFIG.colors[name] ? name : hex;
         // Auto-apply color change when editing an existing arrow
         if (this._selectedArrow) {
             this._autoApplyArrowEdit();
@@ -516,11 +771,8 @@ class ContextMenu {
             return;
         }
         if (this.selectedFeature) {
-            if (this.selectedFeature.type === 'region') {
-                this.addRegion();
-            } else {
-                this.addCountry();
-            }
+            // Country is always the default action (Enter key)
+            this.addCountry();
         } else {
             this.toggleOptionsPanel('bubbleOpts');
         }
@@ -546,6 +798,7 @@ class ContextMenu {
             if (f) this.app.renderer.drawFeature(f, colorHex, anim);
         }
         this.editor.insert(line);
+        this._commitColorToHistory();
     }
 
     addCountry() {
@@ -561,6 +814,7 @@ class ContextMenu {
         const f = this.app.geoData.findCountry(name);
         if (f) this.app.renderer.drawFeature(f, colorHex, anim);
         this.editor.insert(line);
+        this._commitColorToHistory();
     }
 
     // ─── Attack Arrow Flow ───
@@ -569,13 +823,9 @@ class ContextMenu {
         this.close();
         if (!this.selectedFeature && !this.clickLngLat) return;
 
-        // Read options from arrow panel if it was open
-        const curveEl = document.getElementById('arrowCurveRange');
-        const curve = curveEl ? parseFloat(curveEl.value) : 0.15;
-        const widthEl = document.getElementById('arrowWidthRange');
-        const width = widthEl ? parseFloat(widthEl.value) : 1;
-        const headEl = document.getElementById('arrowHeadSizeRange');
-        const headSize = headEl ? parseFloat(headEl.value) : 1;
+        // Read draw duration from arrow panel
+        const durationEl = document.getElementById('arrowDurationRange');
+        const duration = durationEl ? parseInt(durationEl.value) : 800;
 
         let fromScript, fromLabel, fromCoord;
         if (this.selectedFeature) {
@@ -595,9 +845,10 @@ class ContextMenu {
         this._flowFromCoord = fromCoord || null;
         this._flowFromLabel = fromLabel;
         this._flowColor = this.selectedColor;
-        this._flowCurve = curve;
-        this._flowWidth = width;
-        this._flowHeadSize = headSize;
+        this._flowCurve = 0.15;
+        this._flowWidth = 1;
+        this._flowHeadSize = 1;
+        this._flowDuration = duration;
 
         const indicator = document.getElementById('attackIndicator');
         if (indicator) {
@@ -665,17 +916,15 @@ class ContextMenu {
             const curve = this._flowCurve;
             const width = this._flowWidth;
             const headSize = this._flowHeadSize;
-            let line = `attack: ${this._flowFrom}, ${toScript}, ${color}`;
-            const hasCustomCurve = Math.abs(curve - 0.15) > 0.01;
-            const hasCustomWidth = Math.abs(width - 1) > 0.01;
-            const hasCustomHead = Math.abs(headSize - 1) > 0.01;
-            if (hasCustomCurve || hasCustomWidth || hasCustomHead) line += `, ${curve.toFixed(2)}`;
-            if (hasCustomWidth || hasCustomHead) line += `, ${width.toFixed(2)}`;
-            if (hasCustomHead) line += `, ${headSize.toFixed(2)}`;
-            this.editor.insert(line);
+            const duration = this._flowDuration || 800;
+            // Create arrow first, then use arrowToScript for consistent formatting
             if (fromCoord && toCoordResolved) {
-                renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
-                    { fromName: this._flowFromLabel, toName: toScript }, width, headSize);
+                const arrow = renderer.addArrow(fromCoord, toCoordResolved, colorHex, curve,
+                    { fromName: this._flowFromLabel, toName: toScript }, width, headSize, 'none', duration);
+                if (arrow) {
+                    const lineIdx = this.editor.insert(renderer.arrowToScript(arrow));
+                    arrow.scriptLine = lineIdx;
+                }
             }
         } else if (this._flowType === 'line') {
             this.editor.insert(`line: ${this._flowFrom}, ${toScript}, ${color}`);
@@ -691,6 +940,7 @@ class ContextMenu {
             }
         }
 
+        this._commitColorToHistory();
         this.cancelFlow();
     }
 
@@ -703,6 +953,7 @@ class ContextMenu {
         this._flowCurve = 0.15;
         this._flowWidth = 1;
         this._flowHeadSize = 1;
+        this._flowDuration = 800;
         const indicator = document.getElementById('attackIndicator');
         if (indicator) indicator.style.display = 'none';
         this.close();
@@ -874,15 +1125,20 @@ class ContextMenu {
     _autoApplyArrowEdit() {
         if (!this._selectedArrow) return;
         const a = this._selectedArrow.arrow;
-        const curveEl = document.getElementById('editArrowCurve');
         const widthEl = document.getElementById('editArrowWidth');
         const headEl = document.getElementById('editArrowHeadSize');
-        if (curveEl) a.curve = parseFloat(curveEl.value);
+        const durationEl = document.getElementById('editArrowDuration');
         if (widthEl) a.width = parseFloat(widthEl.value);
         if (headEl) a.headSize = parseFloat(headEl.value);
+        if (durationEl) a.drawDuration = parseInt(durationEl.value);
         const colorHex = CONFIG.colors[this.selectedColor] || this.selectedColor;
         a.color = colorHex;
         this.app.renderer.renderArrows();
+        // Sync change to script
+        if (a.scriptLine >= 0) {
+            this.editor.updateArrowLine(a.scriptLine, this.app.renderer.arrowToScript(a));
+        }
+        this._commitColorToHistory();
     }
 
     applyArrowEdit() {
@@ -893,6 +1149,15 @@ class ContextMenu {
 
     deleteArrow() {
         if (!this._selectedArrow) return;
+        const a = this._selectedArrow.arrow;
+        // Remove from script
+        if (a.scriptLine >= 0) {
+            this.editor.removeLine(a.scriptLine);
+            // Adjust scriptLine indices for arrows after this one
+            this.app.renderer.arrows.forEach(arr => {
+                if (arr.scriptLine > a.scriptLine) arr.scriptLine--;
+            });
+        }
         this.app.renderer.removeArrow(this._selectedArrow.index);
         this.close();
     }
@@ -909,6 +1174,10 @@ class ContextMenu {
             a.meta.toName = tmpN;
         }
         this.app.renderer.renderArrows();
+        // Sync to script
+        if (a.scriptLine >= 0) {
+            this.editor.updateArrowLine(a.scriptLine, this.app.renderer.arrowToScript(a));
+        }
         this.close();
     }
 

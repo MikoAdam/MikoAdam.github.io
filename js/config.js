@@ -10,38 +10,20 @@ const CONFIG = {
         satellite: 'nasa-satellite'
     },
 
-    // Color palette
+    // Color palette — 12 color-theory-based colors, evenly spaced on the hue wheel
     colors: {
-        // Primary colors
-        red: '#ef4444',
-        orange: '#f97316',
-        yellow: '#eab308',
-        gold: '#f59e0b',
-        green: '#22c55e',
-        blue: '#3b82f6',
-        cyan: '#06b6d4',
-        purple: '#a855f7',
-        pink: '#ec4899',
-        magenta: '#d946ef',
-        
-        // NATO expansion theme
-        founding: '#8b5cf6',
-        southern: '#14b8a6',
-        coldwar: '#f59e0b',
-        expansion99: '#f97316',
-        bigbang: '#3b82f6',
-        balkans: '#ec4899',
-        nordic: '#ef4444',
-        
-        // Utilities
-        white: '#ffffff',
-        maroon: '#991b1b',
-        coral: '#fb7185',
-        salmon: '#fca5a5',
-        tan: '#d6d3d1',
-        brown: '#78350f',
-        navy: '#1e3a8a',
-        lime: '#84cc16'
+        red: '#dc2626',
+        orange: '#ea580c',
+        yellow: '#ca8a04',
+        green: '#16a34a',
+        teal: '#0d9488',
+        blue: '#2563eb',
+        indigo: '#4f46e5',
+        purple: '#9333ea',
+        pink: '#db2777',
+        brown: '#92400e',
+        gray: '#6b7280',
+        white: '#e5e7eb'
     },
 
     // Data sources
@@ -64,7 +46,10 @@ const CONFIG = {
         uae: 'united arab emirates',
         czech: 'czechia',
         russia: 'russian federation',
-        holland: 'netherlands'
+        holland: 'netherlands',
+        gaza: 'palestine',
+        'west bank': 'palestine',
+        'palestinian territories': 'palestine'
     },
 
     // Region name aliases (for special characters and alternate spellings)
