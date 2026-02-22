@@ -62,52 +62,101 @@ class ContextMenu {
             palette.appendChild(swatch);
         });
 
-        // Custom color picker button — color preview circle + "Pick" label
-        const customBtn = document.createElement('button');
-        customBtn.className = 'color-picker-btn';
-        customBtn.innerHTML = '<span class="color-picker-preview"></span> Pick color';
+        // ── Custom color: inline spectrum slider + hex input ──
+        // "More" toggle to expand/collapse
+        const customToggle = document.createElement('button');
+        customToggle.className = 'color-picker-toggle';
+        customToggle.textContent = '+';
+        customToggle.title = 'Custom color';
+        palette.appendChild(customToggle);
 
-        // Inline sub-panel: visible <input type="color"> + Done button
-        const subPanel = document.createElement('div');
-        subPanel.className = 'color-picker-subpanel';
-        subPanel.style.display = 'none';
+        const customPanel = document.createElement('div');
+        customPanel.className = 'color-custom-panel';
+        customPanel.style.display = 'none';
 
-        // Create a visible color input inside the sub-panel
-        const visiblePicker = document.createElement('input');
-        visiblePicker.type = 'color';
-        visiblePicker.className = 'color-picker-visible';
-        visiblePicker.value = '#ff0000';
+        // Hue spectrum slider (rainbow bar)
+        const hueSlider = document.createElement('input');
+        hueSlider.type = 'range';
+        hueSlider.className = 'color-hue-slider';
+        hueSlider.min = 0;
+        hueSlider.max = 360;
+        hueSlider.value = 0;
 
-        const doneBtn = document.createElement('button');
-        doneBtn.className = 'color-picker-done-btn';
-        doneBtn.textContent = 'Done';
-        doneBtn.addEventListener('click', (e) => {
+        // Preview swatch + hex input side-by-side
+        const previewRow = document.createElement('div');
+        previewRow.className = 'color-preview-row';
+
+        const previewSwatch = document.createElement('div');
+        previewSwatch.className = 'color-preview-swatch';
+        previewSwatch.style.background = '#ff0000';
+
+        const hexInput = document.createElement('input');
+        hexInput.type = 'text';
+        hexInput.className = 'color-hex-input';
+        hexInput.value = '#ff0000';
+        hexInput.maxLength = 7;
+        hexInput.placeholder = '#ff0000';
+
+        previewRow.appendChild(previewSwatch);
+        previewRow.appendChild(hexInput);
+
+        customPanel.appendChild(hueSlider);
+        customPanel.appendChild(previewRow);
+        palette.parentNode.insertBefore(customPanel, palette.nextSibling);
+
+        // Toggle expand/collapse
+        customToggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            subPanel.style.display = 'none';
+            const isOpen = customPanel.style.display !== 'none';
+            customPanel.style.display = isOpen ? 'none' : 'block';
+            customToggle.classList.toggle('open', !isOpen);
         });
 
-        subPanel.appendChild(visiblePicker);
-        subPanel.appendChild(doneBtn);
+        // Hue slider → update color live
+        const hueToHex = (h) => {
+            const s = 1, l = 0.5;
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = l - c / 2;
+            let r, g, b;
+            if (h < 60) { r = c; g = x; b = 0; }
+            else if (h < 120) { r = x; g = c; b = 0; }
+            else if (h < 180) { r = 0; g = c; b = x; }
+            else if (h < 240) { r = 0; g = x; b = c; }
+            else if (h < 300) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+            const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        };
 
-        customBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isOpen = subPanel.style.display !== 'none';
-            subPanel.style.display = isOpen ? 'none' : 'flex';
-            if (!isOpen) visiblePicker.value = this._lastCustomColor || '#ff0000';
-        });
-
-        palette.appendChild(customBtn);
-        palette.appendChild(subPanel);
-
-        // Listen for visible color picker changes
-        visiblePicker.addEventListener('input', (e) => {
-            const hex = e.target.value;
+        const applyCustomColor = (hex) => {
             this._lastCustomColor = hex;
-            const preview = customBtn.querySelector('.color-picker-preview');
-            if (preview) preview.style.background = hex;
+            previewSwatch.style.background = hex;
+            hexInput.value = hex;
             this.selectColor(hex, null);
             document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        };
+
+        hueSlider.addEventListener('input', (e) => {
+            e.stopPropagation();
+            applyCustomColor(hueToHex(parseInt(e.target.value)));
         });
+
+        // Hex input → apply on Enter or blur
+        hexInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                const v = hexInput.value.trim();
+                if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+            }
+            e.stopPropagation(); // prevent menu shortcuts
+        });
+        hexInput.addEventListener('blur', () => {
+            const v = hexInput.value.trim();
+            if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+        });
+        hexInput.addEventListener('click', (e) => e.stopPropagation());
     }
 
     setupAnimationPills() {

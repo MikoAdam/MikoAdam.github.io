@@ -499,37 +499,36 @@ main {
     box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
 }
 
-.color-picker-btn {
+/* "+" toggle for custom color panel */
+.color-picker-toggle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px dashed #555;
+    background: transparent;
+    color: #888;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px 3px 4px;
-    margin-top: 4px;
-    font-size: 9px;
-    font-weight: 600;
-    border: 1px solid #444;
-    border-radius: 10px;
-    background: transparent;
-    color: #aaa;
-    cursor: pointer;
+    justify-content: center;
+    padding: 0;
     transition: all 0.12s;
-    font-family: inherit;
-    white-space: nowrap;
-    width: fit-content;
+    flex-shrink: 0;
 }
 
-.color-picker-btn:hover {
+.color-picker-toggle:hover {
     border-color: #667eea;
     color: #ddd;
 }
 
-.color-picker-preview {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
-    border: 1px solid #555;
-    flex-shrink: 0;
+.color-picker-toggle.open {
+    border-style: solid;
+    border-color: #667eea;
+    color: #667eea;
+    transform: rotate(45deg);
 }
 
 /* Done button in edit modes */
@@ -543,47 +542,65 @@ main {
     background: rgba(74, 222, 128, 0.15) !important;
 }
 
-/* Color picker sub-panel (inline, opens below "Pick color" button) */
-.color-picker-subpanel {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    margin-top: 4px;
-    padding: 6px 4px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 6px;
-    border: 1px solid #3a3a50;
+/* Custom color panel (spectrum slider + hex input) */
+.color-custom-panel {
+    padding: 6px 10px 8px;
+    border-top: 1px solid #2a2a3a;
 }
 
-.color-picker-visible {
-    width: 40px;
-    height: 28px;
-    border: 1px solid #555;
-    border-radius: 4px;
-    padding: 0;
+.color-hue-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    outline: none;
     cursor: pointer;
-    background: none;
+    margin-bottom: 6px;
+}
+
+.color-hue-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #222;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    cursor: pointer;
+}
+
+.color-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.color-preview-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #555;
     flex-shrink: 0;
 }
 
-.color-picker-done-btn {
-    padding: 4px 12px;
-    font-size: 10px;
-    font-weight: 600;
+.color-hex-input {
+    flex: 1;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #3a3a50;
     border-radius: 4px;
-    border: 1px solid #4ade80;
-    background: rgba(74, 222, 128, 0.15);
-    color: #4ade80;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.12s;
-    white-space: nowrap;
+    color: #ccc;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    outline: none;
+    width: 0;
+    min-width: 0;
 }
 
-.color-picker-done-btn:hover {
-    background: rgba(74, 222, 128, 0.3);
-    color: #fff;
+.color-hex-input:focus {
+    border-color: #667eea;
 }
 
 /* Arrow animation pills */
