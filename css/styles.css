@@ -474,6 +474,38 @@ main {
 
 .color-palette {
     padding: 4px 10px 6px;
+}
+
+/* Active color indicator */
+.color-active-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 3px 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    border: 1px solid #2a2a3a;
+}
+
+.color-active-preview {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(0,0,0,0.4);
+}
+
+.color-active-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #ccc;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Swatch row */
+.color-swatch-row {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
@@ -497,6 +529,18 @@ main {
 .color-swatch.selected {
     border-color: #fff;
     box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+/* History row */
+.color-history-row {
+    display: flex;
+    gap: 3px;
+    margin-top: 4px;
+}
+
+.color-history-swatch {
+    width: 16px;
+    height: 16px;
 }
 
 /* "+" toggle for custom color panel */
@@ -542,28 +586,37 @@ main {
     background: rgba(74, 222, 128, 0.15) !important;
 }
 
-/* Custom color panel (spectrum slider + hex input) */
+/* Custom color panel: 2D area + hue slider + hex input */
 .color-custom-panel {
     padding: 6px 10px 8px;
     border-top: 1px solid #2a2a3a;
+}
+
+.color-sl-canvas {
+    width: 100%;
+    height: 80px;
+    border-radius: 4px;
+    cursor: crosshair;
+    margin-bottom: 4px;
+    display: block;
 }
 
 .color-hue-slider {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 12px;
-    border-radius: 6px;
+    height: 10px;
+    border-radius: 5px;
     background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
     outline: none;
     cursor: pointer;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .color-hue-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: #fff;
     border: 2px solid #222;
@@ -575,14 +628,6 @@ main {
     display: flex;
     align-items: center;
     gap: 6px;
-}
-
-.color-preview-swatch {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid #555;
-    flex-shrink: 0;
 }
 
 .color-hex-input {

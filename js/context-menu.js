@@ -49,6 +49,25 @@ class ContextMenu {
         const palette = document.getElementById('colorPalette');
         if (!palette) return;
         palette.innerHTML = '';
+
+        // ── Active color indicator bar ──
+        const activeBar = document.createElement('div');
+        activeBar.className = 'color-active-bar';
+        const activePreview = document.createElement('div');
+        activePreview.className = 'color-active-preview';
+        activePreview.style.background = CONFIG.colors.blue;
+        const activeLabel = document.createElement('span');
+        activeLabel.className = 'color-active-label';
+        activeLabel.textContent = 'blue';
+        activeBar.appendChild(activePreview);
+        activeBar.appendChild(activeLabel);
+        palette.appendChild(activeBar);
+        this._activePreview = activePreview;
+        this._activeLabel = activeLabel;
+
+        // ── Preset swatches ──
+        const swatchRow = document.createElement('div');
+        swatchRow.className = 'color-swatch-row';
         Object.entries(CONFIG.colors).forEach(([name, hex]) => {
             const swatch = document.createElement('div');
             swatch.className = 'color-swatch' + (name === 'blue' ? ' selected' : '');
@@ -59,22 +78,42 @@ class ContextMenu {
                 e.stopPropagation();
                 this.selectColor(name, swatch);
             });
-            palette.appendChild(swatch);
+            swatchRow.appendChild(swatch);
         });
 
-        // ── Custom color: inline spectrum slider + hex input ──
-        // "More" toggle to expand/collapse
+        // "+" toggle
         const customToggle = document.createElement('button');
         customToggle.className = 'color-picker-toggle';
         customToggle.textContent = '+';
         customToggle.title = 'Custom color';
-        palette.appendChild(customToggle);
+        swatchRow.appendChild(customToggle);
+        palette.appendChild(swatchRow);
 
+        // ── History row (recently used custom colors) ──
+        const historyRow = document.createElement('div');
+        historyRow.className = 'color-history-row';
+        historyRow.style.display = 'none';
+        palette.appendChild(historyRow);
+        this._colorHistoryRow = historyRow;
+        this._colorHistory = JSON.parse(localStorage.getItem('poc-color-history') || '[]');
+        this._renderColorHistory();
+
+        // ── Custom color panel: 2D area + hue slider + hex input ──
         const customPanel = document.createElement('div');
         customPanel.className = 'color-custom-panel';
         customPanel.style.display = 'none';
 
-        // Hue spectrum slider (rainbow bar)
+        // Saturation-Lightness canvas (2D)
+        const slCanvas = document.createElement('canvas');
+        slCanvas.className = 'color-sl-canvas';
+        slCanvas.width = 220;
+        slCanvas.height = 100;
+        this._slCanvas = slCanvas;
+        this._currentHue = 0;
+        this._currentSat = 1;
+        this._currentLight = 0.5;
+
+        // Hue spectrum slider
         const hueSlider = document.createElement('input');
         hueSlider.type = 'range';
         hueSlider.className = 'color-hue-slider';
@@ -82,39 +121,24 @@ class ContextMenu {
         hueSlider.max = 360;
         hueSlider.value = 0;
 
-        // Preview swatch + hex input side-by-side
+        // Preview + hex input row
         const previewRow = document.createElement('div');
         previewRow.className = 'color-preview-row';
-
-        const previewSwatch = document.createElement('div');
-        previewSwatch.className = 'color-preview-swatch';
-        previewSwatch.style.background = '#ff0000';
-
         const hexInput = document.createElement('input');
         hexInput.type = 'text';
         hexInput.className = 'color-hex-input';
         hexInput.value = '#ff0000';
         hexInput.maxLength = 7;
         hexInput.placeholder = '#ff0000';
-
-        previewRow.appendChild(previewSwatch);
         previewRow.appendChild(hexInput);
 
+        customPanel.appendChild(slCanvas);
         customPanel.appendChild(hueSlider);
         customPanel.appendChild(previewRow);
         palette.parentNode.insertBefore(customPanel, palette.nextSibling);
 
-        // Toggle expand/collapse
-        customToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isOpen = customPanel.style.display !== 'none';
-            customPanel.style.display = isOpen ? 'none' : 'block';
-            customToggle.classList.toggle('open', !isOpen);
-        });
-
-        // Hue slider → update color live
-        const hueToHex = (h) => {
-            const s = 1, l = 0.5;
+        // ── HSL helpers ──
+        const hslToHex = (h, s, l) => {
             const c = (1 - Math.abs(2 * l - 1)) * s;
             const x = c * (1 - Math.abs((h / 60) % 2 - 1));
             const m = l - c / 2;
@@ -125,38 +149,153 @@ class ContextMenu {
             else if (h < 240) { r = 0; g = x; b = c; }
             else if (h < 300) { r = x; g = 0; b = c; }
             else { r = c; g = 0; b = x; }
-            const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
-            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            const toH = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+            return `#${toH(r)}${toH(g)}${toH(b)}`;
+        };
+
+        const drawSLCanvas = (hue) => {
+            const ctx = slCanvas.getContext('2d');
+            const w = slCanvas.width, h = slCanvas.height;
+            const imgData = ctx.createImageData(w, h);
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const sat = x / (w - 1);
+                    const light = 1 - y / (h - 1);
+                    const hex = hslToHex(hue, sat, light);
+                    const i = (y * w + x) * 4;
+                    imgData.data[i] = parseInt(hex.slice(1, 3), 16);
+                    imgData.data[i + 1] = parseInt(hex.slice(3, 5), 16);
+                    imgData.data[i + 2] = parseInt(hex.slice(5, 7), 16);
+                    imgData.data[i + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            // Draw crosshair at current position
+            const cx = Math.round(this._currentSat * (w - 1));
+            const cy = Math.round((1 - this._currentLight) * (h - 1));
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
         };
 
         const applyCustomColor = (hex) => {
             this._lastCustomColor = hex;
-            previewSwatch.style.background = hex;
             hexInput.value = hex;
             this.selectColor(hex, null);
             document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         };
 
-        hueSlider.addEventListener('input', (e) => {
+        const pickFromCanvas = (e) => {
+            const rect = slCanvas.getBoundingClientRect();
+            const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+            this._currentSat = x;
+            this._currentLight = 1 - y;
+            const hex = hslToHex(this._currentHue, this._currentSat, this._currentLight);
+            drawSLCanvas(this._currentHue);
+            applyCustomColor(hex);
+        };
+
+        // Canvas mouse interaction
+        let canvasDragging = false;
+        slCanvas.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            applyCustomColor(hueToHex(parseInt(e.target.value)));
+            e.preventDefault();
+            canvasDragging = true;
+            pickFromCanvas(e);
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (canvasDragging) pickFromCanvas(e);
+        });
+        document.addEventListener('mouseup', () => {
+            if (canvasDragging) {
+                canvasDragging = false;
+                // Add to history on release
+                this._addColorHistory(hexInput.value);
+            }
         });
 
-        // Hex input → apply on Enter or blur
+        // Toggle expand/collapse
+        customToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = customPanel.style.display !== 'none';
+            customPanel.style.display = isOpen ? 'none' : 'block';
+            customToggle.classList.toggle('open', !isOpen);
+            if (!isOpen) drawSLCanvas(this._currentHue);
+        });
+
+        // Hue slider
+        hueSlider.addEventListener('input', (e) => {
+            e.stopPropagation();
+            this._currentHue = parseInt(e.target.value);
+            drawSLCanvas(this._currentHue);
+            applyCustomColor(hslToHex(this._currentHue, this._currentSat, this._currentLight));
+        });
+
+        // Hex input
         hexInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
                 const v = hexInput.value.trim();
-                if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+                if (/^#[0-9a-f]{6}$/i.test(v)) {
+                    applyCustomColor(v);
+                    this._addColorHistory(v);
+                }
             }
-            e.stopPropagation(); // prevent menu shortcuts
+            e.stopPropagation();
         });
         hexInput.addEventListener('blur', () => {
             const v = hexInput.value.trim();
-            if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
+            if (/^#[0-9a-f]{6}$/i.test(v)) {
+                applyCustomColor(v);
+                this._addColorHistory(v);
+            }
         });
         hexInput.addEventListener('click', (e) => e.stopPropagation());
+
+        // Initial draw
+        drawSLCanvas(0);
+    }
+
+    _addColorHistory(hex) {
+        if (!hex || !hex.startsWith('#')) return;
+        this._colorHistory = this._colorHistory.filter(c => c !== hex);
+        this._colorHistory.unshift(hex);
+        if (this._colorHistory.length > 8) this._colorHistory.pop();
+        localStorage.setItem('poc-color-history', JSON.stringify(this._colorHistory));
+        this._renderColorHistory();
+    }
+
+    _renderColorHistory() {
+        const row = this._colorHistoryRow;
+        if (!row) return;
+        row.innerHTML = '';
+        if (this._colorHistory.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+        row.style.display = 'flex';
+        this._colorHistory.forEach(hex => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch color-history-swatch';
+            swatch.style.background = hex;
+            swatch.title = hex;
+            swatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectColor(hex, null);
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                swatch.classList.add('selected');
+            });
+            row.appendChild(swatch);
+        });
     }
 
     setupAnimationPills() {
@@ -575,6 +714,10 @@ class ContextMenu {
         this.selectedColor = name;
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         if (swatch) swatch.classList.add('selected');
+        // Update active color indicator bar
+        const hex = CONFIG.colors[name] || name;
+        if (this._activePreview) this._activePreview.style.background = hex;
+        if (this._activeLabel) this._activeLabel.textContent = CONFIG.colors[name] ? name : hex;
         // Auto-apply color change when editing an existing arrow
         if (this._selectedArrow) {
             this._autoApplyArrowEdit();
