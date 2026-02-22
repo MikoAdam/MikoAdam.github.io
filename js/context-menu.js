@@ -215,11 +215,7 @@ class ContextMenu {
             if (canvasDragging) pickFromCanvas(e);
         });
         document.addEventListener('mouseup', () => {
-            if (canvasDragging) {
-                canvasDragging = false;
-                // Add to history on release
-                this._addColorHistory(hexInput.value);
-            }
+            if (canvasDragging) canvasDragging = false;
         });
 
         // Toggle expand/collapse
@@ -228,7 +224,15 @@ class ContextMenu {
             const isOpen = customPanel.style.display !== 'none';
             customPanel.style.display = isOpen ? 'none' : 'block';
             customToggle.classList.toggle('open', !isOpen);
-            if (!isOpen) drawSLCanvas(this._currentHue);
+            if (!isOpen) {
+                // Sync canvas internal size to actual display size
+                requestAnimationFrame(() => {
+                    const rect = slCanvas.getBoundingClientRect();
+                    slCanvas.width = Math.round(rect.width);
+                    slCanvas.height = Math.round(rect.height);
+                    drawSLCanvas(this._currentHue);
+                });
+            }
         });
 
         // Hue slider
@@ -245,24 +249,24 @@ class ContextMenu {
                 e.preventDefault();
                 e.stopPropagation();
                 const v = hexInput.value.trim();
-                if (/^#[0-9a-f]{6}$/i.test(v)) {
-                    applyCustomColor(v);
-                    this._addColorHistory(v);
-                }
+                if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
             }
             e.stopPropagation();
         });
         hexInput.addEventListener('blur', () => {
             const v = hexInput.value.trim();
-            if (/^#[0-9a-f]{6}$/i.test(v)) {
-                applyCustomColor(v);
-                this._addColorHistory(v);
-            }
+            if (/^#[0-9a-f]{6}$/i.test(v)) applyCustomColor(v);
         });
         hexInput.addEventListener('click', (e) => e.stopPropagation());
 
         // Initial draw
         drawSLCanvas(0);
+    }
+
+    /** Call when a color is committed to the script (applied) */
+    _commitColorToHistory() {
+        const c = this.selectedColor;
+        if (c && c.startsWith('#') && !CONFIG.colors[c]) this._addColorHistory(c);
     }
 
     _addColorHistory(hex) {
@@ -794,6 +798,7 @@ class ContextMenu {
             if (f) this.app.renderer.drawFeature(f, colorHex, anim);
         }
         this.editor.insert(line);
+        this._commitColorToHistory();
     }
 
     addCountry() {
@@ -809,6 +814,7 @@ class ContextMenu {
         const f = this.app.geoData.findCountry(name);
         if (f) this.app.renderer.drawFeature(f, colorHex, anim);
         this.editor.insert(line);
+        this._commitColorToHistory();
     }
 
     // ─── Attack Arrow Flow ───
@@ -934,6 +940,7 @@ class ContextMenu {
             }
         }
 
+        this._commitColorToHistory();
         this.cancelFlow();
     }
 
@@ -1131,6 +1138,7 @@ class ContextMenu {
         if (a.scriptLine >= 0) {
             this.editor.updateArrowLine(a.scriptLine, this.app.renderer.arrowToScript(a));
         }
+        this._commitColorToHistory();
     }
 
     applyArrowEdit() {

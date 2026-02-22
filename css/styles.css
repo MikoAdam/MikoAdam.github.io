@@ -531,16 +531,29 @@ main {
     box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
 }
 
-/* History row */
+/* History row — full width */
 .color-history-row {
     display: flex;
     gap: 3px;
-    margin-top: 4px;
+    margin-top: 5px;
+    padding-top: 4px;
+    border-top: 1px solid #2a2a3a;
 }
 
 .color-history-swatch {
     width: 16px;
     height: 16px;
+}
+
+.color-history-row::before {
+    content: 'Recent';
+    font-size: 8px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    align-self: center;
+    margin-right: 2px;
+    flex-shrink: 0;
 }
 
 /* "+" toggle for custom color panel */
@@ -594,7 +607,7 @@ main {
 
 .color-sl-canvas {
     width: 100%;
-    height: 80px;
+    aspect-ratio: 3 / 1;
     border-radius: 4px;
     cursor: crosshair;
     margin-bottom: 4px;
