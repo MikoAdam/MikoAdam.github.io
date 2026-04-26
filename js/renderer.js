@@ -90,6 +90,21 @@ class MapRenderer {
         this.sourceIds.add(id);
     }
 
+    /**
+     * Returns the ID of the first symbol (label/icon) layer in the current style.
+     * Used as `beforeId` so that fill/line layers are inserted *below* labels,
+     * keeping country names visible on top of colored fills.
+     * Returns undefined if no symbol layers exist (satellite-only fallback).
+     */
+    _getFirstLabelLayerId() {
+        const style = this.map.getStyle();
+        if (!style || !style.layers) return undefined;
+        for (const layer of style.layers) {
+            if (layer.type === 'symbol') return layer.id;
+        }
+        return undefined;
+    }
+
     addLineLayer(id, sourceId, color, width, opacity, options = {}) {
         const paint = {
             'line-color': color,
@@ -99,7 +114,8 @@ class MapRenderer {
         if (options.dasharray) paint['line-dasharray'] = options.dasharray;
         if (options.blur) paint['line-blur'] = options.blur;
 
-        this.map.addLayer({ id, type: 'line', source: sourceId, paint });
+        // Insert below labels so country names stay visible
+        this.map.addLayer({ id, type: 'line', source: sourceId, paint }, this._getFirstLabelLayerId());
         this.layers.push(id);
     }
 
@@ -110,7 +126,8 @@ class MapRenderer {
         };
         if (options.pattern) paint['fill-pattern'] = options.pattern;
 
-        this.map.addLayer({ id, type: 'fill', source: sourceId, paint });
+        // Insert below labels so country names stay visible
+        this.map.addLayer({ id, type: 'fill', source: sourceId, paint }, this._getFirstLabelLayerId());
         this.layers.push(id);
     }
 
@@ -536,7 +553,7 @@ class MapRenderer {
                 'line-width': 1,
                 'line-opacity': 0.6
             }
-        });
+        }, this._getFirstLabelLayerId());
     }
 
     removeBorderLayer() {
@@ -631,7 +648,7 @@ class MapRenderer {
             return;
         }
 
-        // Normal fill + border
+        // Normal fill + border — both inserted below labels
         this.addFillLayer(id + '-fill', id, color, 0);
         this.map.addLayer({
             id: id + '-line',
@@ -643,7 +660,7 @@ class MapRenderer {
                 'line-opacity': 0,
                 'line-blur': 3
             }
-        });
+        }, this._getFirstLabelLayerId());
         this.layers.push(id + '-line');
 
         // Helper: rAF-based tween — GPU-synced, no setInterval jank
