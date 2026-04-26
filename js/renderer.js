@@ -123,6 +123,7 @@ class MapRenderer {
             style = await response.json();
             delete style.center;
             delete style.zoom;
+            this._libertyStyle = style; // Cache for satellite hybrid mode
         } catch (e) {
             style = CONFIG.styles.liberty;
         }
@@ -139,9 +140,18 @@ class MapRenderer {
         });
 
         this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        // Throttle label/symbol size updates to one rAF per zoom event burst —
+        // 'zoom' can fire many times per frame during pinch/scroll gestures.
+        this._sizeRafPending = false;
         this.map.on('zoom', () => {
-            this.updateLabelSizes();
-            this.updateSymbolSizes();
+            if (this._sizeRafPending) return;
+            this._sizeRafPending = true;
+            requestAnimationFrame(() => {
+                this._sizeRafPending = false;
+                this.updateLabelSizes();
+                this.updateSymbolSizes();
+            });
         });
         this._baseZoom = 3; // Reference zoom level for symbol sizing
 
@@ -231,20 +241,107 @@ class MapRenderer {
         const zoom = this.map.getZoom();
         const isSatellite = document.getElementById('styleSelect').value === 'satellite';
 
-        const baseSize = isSatellite
-            ? Math.max(12, Math.min(22, zoom * 2.5))
-            : Math.max(8, Math.min(14, zoom * 1.5));
+        // Minimum zoom to show each tier (satellite only — liberty shows all)
+        // Tier: 1=huge nations, 2=large, 3=medium, 4=small, 5=tiny
+        const minZoomByTier = [0, 1.5, 2.5, 3.5, 4.5, 5.5];
+        // Extra font-size bonus per tier (bigger label for more important country)
+        const tierBonus = [0, 5, 2, 0, -1, -2];
+
+        const baseSizeSat = Math.max(10, Math.min(22, zoom * 2.8));
+        const baseSizeLib = Math.max(8, Math.min(14, zoom * 1.5));
 
         document.querySelectorAll('.country-name-label').forEach(label => {
-            label.style.fontSize = baseSize + 'px';
+            const tier = parseInt(label.dataset.tier || '3');
+
             if (isSatellite) {
+                const minZoom = minZoomByTier[tier] ?? 5.5;
+                if (zoom < minZoom) {
+                    label.style.display = 'none';
+                    return;
+                }
+                label.style.display = '';
+                const size = Math.max(10, baseSizeSat + (tierBonus[tier] ?? 0));
+                label.style.fontSize = size + 'px';
                 label.style.textShadow = '0 2px 6px #000, 0 0 20px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5)';
                 label.style.letterSpacing = '1px';
+                // Uppercase for major countries (tier 1-2) for MapTiler-style look
+                label.style.textTransform = tier <= 2 ? 'uppercase' : 'none';
+                label.style.fontWeight = tier <= 2 ? '700' : '600';
             } else {
+                label.style.display = '';
+                label.style.fontSize = baseSizeLib + 'px';
                 label.style.textShadow = '';
                 label.style.letterSpacing = '';
+                label.style.textTransform = '';
+                label.style.fontWeight = '';
             }
         });
+    }
+
+    // ─── Hybrid satellite style: NASA raster + Liberty vector labels ───
+
+    /**
+     * Builds a MapLibre style that layers NASA GIBS satellite imagery underneath
+     * the Liberty vector tile label/place-name layers.  This is the same technique
+     * used by Google Maps, MapTiler Satellite, and Mapbox Satellite Streets —
+     * proper collision-detection, zoom-scaling, and centroid placement come for free.
+     *
+     * We include all "symbol" layers from Liberty EXCEPT transportation/POI/waterway
+     * labels, so only country, state, and place names appear.
+     */
+    _buildHybridSatelliteStyle() {
+        const lib = this._libertyStyle;
+        if (!lib || !lib.layers) return null;
+
+        // Find the vector tile source key dynamically (OpenFreeMap uses 'openmaptiles')
+        const vectorSourceKey = Object.keys(lib.sources || {}).find(k =>
+            lib.sources[k].type === 'vector'
+        );
+        if (!vectorSourceKey) return null;
+
+        // Whitelist: only pull place-name layers — country, state, city, water bodies.
+        // Everything else (roads, POI, airports, shields…) is excluded automatically.
+        const INCLUDE = ['label_country', 'label_state', 'label_city', 'label_capital',
+                         'country_', 'state', 'water_name'];
+
+        const labelLayers = lib.layers
+            .filter(l => l.type === 'symbol')
+            .filter(l => INCLUDE.some(pat => l.id.toLowerCase().includes(pat)))
+            .map(l => {
+                const layer = JSON.parse(JSON.stringify(l)); // deep clone
+                if (!layer.paint) layer.paint = {};
+                // Override text colours for satellite readability
+                layer.paint['text-color'] = '#ffffff';
+                layer.paint['text-halo-color'] = 'rgba(0,0,0,0.85)';
+                layer.paint['text-halo-width'] = 2;
+                layer.paint['text-halo-blur'] = 0.5;
+                // Boost font size slightly so names are easier to read on dark imagery
+                if (layer.layout && layer.layout['text-size']) {
+                    const sz = layer.layout['text-size'];
+                    // If it's a plain number, add 1; if it's an expression leave it
+                    if (typeof sz === 'number') layer.layout['text-size'] = sz + 1;
+                }
+                return layer;
+            });
+
+        return {
+            version: 8,
+            glyphs: lib.glyphs,
+            sprite: lib.sprite,
+            sources: {
+                nasa: {
+                    type: 'raster',
+                    tiles: [CONFIG.satellite.tiles],
+                    tileSize: 256,
+                    maxzoom: CONFIG.satellite.maxZoom
+                },
+                [vectorSourceKey]: lib.sources[vectorSourceKey]
+            },
+            layers: [
+                { id: 'nasa-background', type: 'raster', source: 'nasa' },
+                ...labelLayers
+            ]
+        };
     }
 
     // ─── Style switching ───
@@ -287,7 +384,11 @@ class MapRenderer {
                     el.style.display = 'flex';
                 });
                 this.addBorderLayer();
-                this.addLabelMarkers();
+                // In hybrid mode, labels are built into the map style itself (vector tiles) —
+                // no DOM markers needed. Fall back to DOM markers only if hybrid failed.
+                if (!this._satelliteIsHybrid) {
+                    this.addLabelMarkers();
+                }
             }
         };
 
@@ -302,20 +403,19 @@ class MapRenderer {
         this.map.once('idle', runOnce);
 
         if (styleKey === 'satellite') {
-            this.map.setStyle({
+            // Try to build the hybrid satellite + vector-labels style
+            const hybrid = this._buildHybridSatelliteStyle();
+            this._satelliteIsHybrid = !!hybrid;
+            this.map.setStyle(hybrid ?? {
                 version: 8,
                 sources: {
-                    nasa: {
-                        type: 'raster',
-                        tiles: [CONFIG.satellite.tiles],
-                        tileSize: 256,
-                        maxzoom: CONFIG.satellite.maxZoom
-                    }
+                    nasa: { type: 'raster', tiles: [CONFIG.satellite.tiles], tileSize: 256, maxzoom: CONFIG.satellite.maxZoom }
                 },
-                layers: [{ id: 'nasa', type: 'raster', source: 'nasa' }]
+                layers: [{ id: 'nasa-background', type: 'raster', source: 'nasa' }]
             });
             this.updateAttribution('satellite');
         } else {
+            this._satelliteIsHybrid = false;
             this.map.setStyle(CONFIG.styles[styleKey]);
             this.updateAttribution('vector');
         }
@@ -446,8 +546,19 @@ class MapRenderer {
 
     toggleLabels(show) {
         this.showLabels = show;
-        if (show) this.addLabelMarkers();
-        else this.removeLabelMarkers();
+        if (this._satelliteIsHybrid) {
+            // In hybrid mode, label layers are part of the map style —
+            // toggle their visibility directly
+            const vis = show ? 'visible' : 'none';
+            (this.map.getStyle()?.layers ?? [])
+                .filter(l => l.type === 'symbol' && l.id !== 'nasa-background')
+                .forEach(l => {
+                    try { this.map.setLayoutProperty(l.id, 'visibility', vis); } catch (_) {}
+                });
+        } else {
+            if (show) this.addLabelMarkers();
+            else this.removeLabelMarkers();
+        }
     }
 
     addLabelMarkers() {
@@ -456,11 +567,33 @@ class MapRenderer {
 
         this.geoData.countries.features.forEach(f => {
             const name = f.properties.NAME || f.properties.ADMIN;
+            if (!name) return;
+
+            // Skip tiny territories/dependencies — they clutter the satellite view
+            const type = (f.properties.TYPE || f.properties.FEATURECLA || '').toLowerCase();
+            const sovereignt = (f.properties.SOVEREIGNT || '').toLowerCase();
+            const admin = (f.properties.ADMIN || '').toLowerCase();
+            const isDependency = sovereignt && sovereignt !== admin &&
+                !['united states of america', 'united kingdom', 'france'].includes(sovereignt);
+            if (isDependency) return;
+
             const center = this.geoData.getCenter(f.geometry, name);
+
+            // Bounding box area as importance proxy (degree²)
+            const bounds = this.geoData.getBounds(f.geometry);
+            const bboxArea = (bounds[1][0] - bounds[0][0]) * (bounds[1][1] - bounds[0][1]);
+
+            // Tier 1=huge, 2=large, 3=medium, 4=small, 5=tiny
+            const tier = bboxArea > 600 ? 1
+                       : bboxArea > 100 ? 2
+                       : bboxArea > 20  ? 3
+                       : bboxArea > 3   ? 4
+                       : 5;
 
             const el = document.createElement('div');
             el.className = 'country-name-label';
             el.textContent = name;
+            el.dataset.tier = tier;
 
             const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
                 .setLngLat(center)
@@ -513,83 +646,64 @@ class MapRenderer {
         });
         this.layers.push(id + '-line');
 
+        // Helper: rAF-based tween — GPU-synced, no setInterval jank
+        const tween = (durationMs, onTick, onDone) => {
+            const start = performance.now();
+            const tick = (now) => {
+                const t = Math.min(1, (now - start) / durationMs);
+                onTick(t);
+                if (t < 1) requestAnimationFrame(tick);
+                else if (onDone) onDone();
+            };
+            requestAnimationFrame(tick);
+        };
+
+        const safeSet = (layerId, prop, val) => {
+            if (this.map.getLayer(layerId)) this.map.setPaintProperty(layerId, prop, val);
+        };
+
         // Animations
         if (animation === 'pulse') {
-            let step = 0;
-            const totalSteps = 80;
-            const interval = setInterval(() => {
-                step++;
-                const progress = step / totalSteps;
-                const eased = 1 - Math.pow(1 - progress, 3);
-
-                this.map.setPaintProperty(id + '-fill', 'fill-opacity', eased * 0.7);
-                this.map.setPaintProperty(id + '-line', 'line-width', 6 - (eased * 2));
-                this.map.setPaintProperty(id + '-line', 'line-opacity', Math.min(eased * 1.2, 1));
-
-                if (step >= totalSteps) {
-                    clearInterval(interval);
-                    this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0.7);
-                    this.map.setPaintProperty(id + '-line', 'line-width', 4);
-                    this.map.setPaintProperty(id + '-line', 'line-opacity', 1);
-                }
-            }, 30);
+            tween(1800, t => {
+                const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+                safeSet(id + '-fill', 'fill-opacity', e * 0.7);
+                safeSet(id + '-line', 'line-width', 6 - e * 2);
+                safeSet(id + '-line', 'line-opacity', Math.min(e * 1.2, 1));
+            }, () => {
+                safeSet(id + '-fill', 'fill-opacity', 0.7);
+                safeSet(id + '-line', 'line-width', 4);
+                safeSet(id + '-line', 'line-opacity', 1);
+            });
 
         } else if (animation === 'fade') {
-            let step = 0;
-            const totalSteps = 65;
-            const interval = setInterval(() => {
-                step++;
-                const progress = step / totalSteps;
-
-                this.map.setPaintProperty(id + '-fill', 'fill-opacity', progress * 0.7);
-                this.map.setPaintProperty(id + '-line', 'line-width', 3);
-                this.map.setPaintProperty(id + '-line', 'line-opacity', progress * 0.7);
-
-                if (step >= totalSteps) clearInterval(interval);
-            }, 30);
+            tween(1500, t => {
+                safeSet(id + '-fill', 'fill-opacity', t * 0.7);
+                safeSet(id + '-line', 'line-width', 3);
+                safeSet(id + '-line', 'line-opacity', t * 0.7);
+            });
 
         } else if (animation === 'radial') {
-            let step = 0;
-            const totalSteps = 80;
-            const interval = setInterval(() => {
-                step++;
-                const progress = step / totalSteps;
-                const eased = progress < 0.5
-                    ? 4 * progress * progress * progress
-                    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-                this.map.setPaintProperty(id + '-fill', 'fill-opacity', eased * 0.7);
-                this.map.setPaintProperty(id + '-line', 'line-width', 8 - (eased * 4));
-                this.map.setPaintProperty(id + '-line', 'line-opacity', Math.min(eased * 1.5, 1));
-
-                if (step >= totalSteps) {
-                    clearInterval(interval);
-                    this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0.7);
-                    this.map.setPaintProperty(id + '-line', 'line-width', 4);
-                }
-            }, 30);
+            tween(1800, t => {
+                const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; // ease-in-out cubic
+                safeSet(id + '-fill', 'fill-opacity', e * 0.7);
+                safeSet(id + '-line', 'line-width', 8 - e * 4);
+                safeSet(id + '-line', 'line-opacity', Math.min(e * 1.5, 1));
+            }, () => {
+                safeSet(id + '-fill', 'fill-opacity', 0.7);
+                safeSet(id + '-line', 'line-width', 4);
+            });
 
         } else if (animation === 'sweep') {
-            let step = 0;
-            const totalSteps = 80;
-
-            this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0);
-            this.map.setPaintProperty(id + '-line', 'line-width', 8);
-            this.map.setPaintProperty(id + '-line', 'line-opacity', 1);
-
-            const interval = setInterval(() => {
-                step++;
-                const progress = step / totalSteps;
-
-                this.map.setPaintProperty(id + '-fill', 'fill-opacity', Math.max(0, (progress - 0.3) / 0.7) * 0.7);
-                this.map.setPaintProperty(id + '-line', 'line-width', 8 - (progress * 4));
-
-                if (step >= totalSteps) {
-                    clearInterval(interval);
-                    this.map.setPaintProperty(id + '-fill', 'fill-opacity', 0.7);
-                    this.map.setPaintProperty(id + '-line', 'line-width', 4);
-                }
-            }, 30);
+            safeSet(id + '-fill', 'fill-opacity', 0);
+            safeSet(id + '-line', 'line-width', 8);
+            safeSet(id + '-line', 'line-opacity', 1);
+            tween(1800, t => {
+                safeSet(id + '-fill', 'fill-opacity', Math.max(0, (t - 0.3) / 0.7) * 0.7);
+                safeSet(id + '-line', 'line-width', 8 - t * 4);
+            }, () => {
+                safeSet(id + '-fill', 'fill-opacity', 0.7);
+                safeSet(id + '-line', 'line-width', 4);
+            });
 
         } else {
             setTimeout(() => {
@@ -626,10 +740,21 @@ class MapRenderer {
         container.appendChild(this.arrowCanvas);
         this.arrowCtx = this.arrowCanvas.getContext('2d');
         this.arrows = [];
+        this._arrowRafPending = false;
 
-        // Redraw on every map move
-        this.map.on('move', () => this.renderArrows());
-        this.map.on('resize', () => this.renderArrows());
+        // Throttle redraws to one per animation frame — map fires 'move' dozens of
+        // times per second during pan/zoom/fly; requesting a new frame each time
+        // causes GPU thrashing and visible stuttering.
+        const scheduleRedraw = () => {
+            if (this._arrowRafPending) return;
+            this._arrowRafPending = true;
+            requestAnimationFrame(() => {
+                this._arrowRafPending = false;
+                this.renderArrows();
+            });
+        };
+        this.map.on('move', scheduleRedraw);
+        this.map.on('resize', scheduleRedraw);
     }
 
     drawAttackArrow(fromFeature, toFeature, color, curve = 0.15, width = 1, headSize = null) {
@@ -693,13 +818,24 @@ class MapRenderer {
     renderArrows() {
         if (!this.arrowCanvas || !this.arrowCtx) return;
         const canvas = this.arrowCanvas;
+        const ctx = this.arrowCtx;
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        const ctx = this.arrowCtx;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.scale(dpr, dpr);
+        const needW = Math.round(rect.width * dpr);
+        const needH = Math.round(rect.height * dpr);
+
+        // Resizing canvas.width/height flushes the GPU texture and resets the context —
+        // it is expensive and causes visible stuttering during pan/zoom/fly.
+        // Only do it when the container actually changes size.
+        if (canvas.width !== needW || canvas.height !== needH) {
+            canvas.width = needW;
+            canvas.height = needH;
+        }
+
+        // Use setTransform (absolute) instead of scale() (cumulative) so we never
+        // accidentally compound the DPR scale across redraws.
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, rect.width, rect.height);
 
         const selIdx = this._selectedArrowIdx ?? -1;
 
@@ -1349,23 +1485,23 @@ class MapRenderer {
 
     // ─── Camera ───
 
-    flyTo(lat, lng, zoom) {
+    flyTo(lat, lng, zoom, duration = 1200) {
         this.map.flyTo({
             center: [lng, lat],
             zoom,
             pitch: 0,
             bearing: 0,
-            duration: 1200
+            duration
         });
     }
 
-    cinematicFlyTo(lat, lng, zoom, pitch = 30, bearing = 0) {
+    cinematicFlyTo(lat, lng, zoom, pitch = 30, bearing = 0, duration = 2000) {
         this.map.flyTo({
             center: [lng, lat],
             zoom,
             pitch: Math.min(30, Math.max(0, pitch)),
             bearing: bearing % 360,
-            duration: 2000,
+            duration,
             essential: true
         });
     }

@@ -15,6 +15,9 @@ class App {
         this.currentIndex = 0;
         this.scriptLines = [];
         this.highlightTimeout = null;
+        this._runToken = 0;          // Incremented on stop/restart to cancel pending delays
+        this.speedMultiplier = 1;    // Playback speed multiplier
+        this._autoStopRecording = false; // Auto-stop recording when animation finishes
     }
 
     async init() {
@@ -69,6 +72,20 @@ class App {
     setupEventHandlers() {
         document.getElementById('styleSelect').addEventListener('change', e => {
             this.renderer.setStyle(e.target.value);
+        });
+
+        // Playback speed
+        document.getElementById('speedSelect').addEventListener('change', e => {
+            this.speedMultiplier = parseFloat(e.target.value);
+            if (this.executor) this.executor.speedMultiplier = this.speedMultiplier;
+        });
+
+        // Timeline click-to-seek
+        document.getElementById('timelineBar').addEventListener('click', e => {
+            if (!this.commands.length || this.isRunning) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            this.seekTo(Math.round(pct * this.commands.length));
         });
         document.getElementById('showBorders').addEventListener('change', e => {
             this.renderer.toggleBorders(e.target.checked);
@@ -191,12 +208,15 @@ class App {
         const stopBtn = document.getElementById('stopBtn');
         const playBtn = document.getElementById('playBtn');
 
+        const recPlayBtn = document.getElementById('recordPlayBtn');
         if (this.commands.length === 0) {
-            if (runBtn) runBtn.style.display = 'block';
+            if (runBtn) { runBtn.style.display = 'block'; runBtn.style.flex = '1'; }
+            if (recPlayBtn) recPlayBtn.style.display = 'block';
             if (dvdControls) dvdControls.style.display = 'none';
             if (dvdControls2) dvdControls2.style.display = 'none';
         } else {
-            if (runBtn) runBtn.style.display = 'none';
+            if (runBtn) { runBtn.style.display = 'none'; }
+            if (recPlayBtn) recPlayBtn.style.display = 'none';
             if (dvdControls) dvdControls.style.display = 'flex';
             if (dvdControls2) dvdControls2.style.display = 'flex';
 
@@ -208,6 +228,7 @@ class App {
     }
 
     stop() {
+        this._runToken++;            // Cancel any pending delay immediately
         this.isPaused = false;
         this.isRunning = false;
         this.showControls(false);
@@ -253,32 +274,51 @@ class App {
             this.currentIndex = 0;
         }
 
+        const token = ++this._runToken;
+        this.executor._isAborted = () => this._runToken !== token;
+        this.executor.speedMultiplier = this.speedMultiplier;
+        this.executor._skipDelays = false;
+
         this.isRunning = true;
         this.showControls(true);
         this.updateTimeline();
         this.setStatus('Running...');
 
         while (this.currentIndex < this.commands.length && this.isRunning) {
+            if (this._runToken !== token) break;
             await this.executor.executeCommand(this.commands[this.currentIndex]);
+            if (this._runToken !== token) break;
             this.currentIndex++;
             this.updateTimeline();
         }
+
+        // If aborted externally (stop/restart/seek), let the caller handle state
+        if (this._runToken !== token) return;
 
         this.isRunning = false;
         this.showControls(false);
         if (this.currentIndex >= this.commands.length) {
             this.setStatus('Done');
+            if (this._autoStopRecording) {
+                this._autoStopRecording = false;
+                // Brief pause to capture last frame before stopping
+                setTimeout(() => this.stopVideoRecording(), 600);
+            }
         }
     }
 
     async stepForward() {
+        if (this.isRunning) return; // Already running — ignore
         if (!this.commands.length) {
             await this.prepareCommands();
         }
 
         if (this.currentIndex < this.commands.length) {
-            this.isRunning = false;
+            const token = ++this._runToken;
+            this.executor._isAborted = () => this._runToken !== token;
+            this.executor._skipDelays = false;
             await this.executor.executeCommand(this.commands[this.currentIndex]);
+            if (this._runToken !== token) return;
             this.currentIndex++;
             this.updateTimeline();
             this.showControls(false);
@@ -289,24 +329,56 @@ class App {
     }
 
     async stepBackward() {
+        if (this.isRunning) this.stop();
         if (this.currentIndex > 0) {
-            this.isRunning = false;
             this.currentIndex--;
-
             this.renderer.clearAll();
+
+            const token = ++this._runToken;
+            this.executor._isAborted = () => this._runToken !== token;
+            this.executor._skipDelays = true; // Skip waits/fly delays during replay
+
             for (let i = 0; i < this.currentIndex; i++) {
+                if (this._runToken !== token) break;
                 const cmd = this.commands[i];
                 if (cmd.type !== 'wait') {
                     await this.executor.executeCommand(cmd);
                 }
             }
 
+            this.executor._skipDelays = false;
+            if (this._runToken !== token) return;
             this.updateTimeline();
             this.showControls(false);
             this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
         } else {
             this.setStatus('Start');
         }
+    }
+
+    async seekTo(targetIndex) {
+        if (this.isRunning) return;
+        if (!this.commands.length) return;
+        this.currentIndex = Math.max(0, Math.min(targetIndex, this.commands.length));
+        this.renderer.clearAll();
+
+        const token = ++this._runToken;
+        this.executor._isAborted = () => this._runToken !== token;
+        this.executor._skipDelays = true;
+
+        for (let i = 0; i < this.currentIndex; i++) {
+            if (this._runToken !== token) break;
+            const cmd = this.commands[i];
+            if (cmd.type !== 'wait') {
+                await this.executor.executeCommand(cmd);
+            }
+        }
+
+        this.executor._skipDelays = false;
+        if (this._runToken !== token) return;
+        this.updateTimeline();
+        this.showControls(false);
+        this.setStatus(`Step ${this.currentIndex} / ${this.commands.length}`);
     }
 
     async prepareCommands() {
@@ -335,6 +407,7 @@ class App {
     }
 
     restart() {
+        this._runToken++;            // Cancel any pending delay immediately
         this.isRunning = false;
         this.isPaused = false;
         this.renderer.clearAll();
@@ -608,8 +681,10 @@ class App {
         };
 
         this.mediaRecorder.start();
-        document.getElementById('recordBtn').style.display = 'none';
+        // Show recording indicator in header; dim the sidebar Rec button
         document.getElementById('stopRecordBtn').style.display = 'inline-block';
+        const recBtn = document.getElementById('recordPlayBtn');
+        if (recBtn) { recBtn.disabled = true; recBtn.textContent = '⏺ Rec…'; }
         this.setStatus('Recording...');
     }
 
@@ -783,10 +858,21 @@ class App {
     stopVideoRecording() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
-            document.getElementById('recordBtn').style.display = 'inline-block';
             document.getElementById('stopRecordBtn').style.display = 'none';
+            const recBtn = document.getElementById('recordPlayBtn');
+            if (recBtn) { recBtn.disabled = false; recBtn.textContent = '⏺ Rec'; }
             this.setStatus('Saving video...');
         }
+    }
+
+    async recordAndPlay() {
+        // Reset to start if needed
+        this.restart();
+        // Brief pause to let clearAll settle
+        await new Promise(r => setTimeout(r, 80));
+        this.startVideoRecording();
+        this._autoStopRecording = true;
+        await this.run();
     }
 
     // ─── Script validation ───

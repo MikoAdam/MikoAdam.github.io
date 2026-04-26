@@ -70,8 +70,7 @@
         <button onclick="app.clearAll()">Clear Map</button>
         <button onclick="app.toggleFullscreen()">Fullscreen</button>
         <button onclick="app.takeScreenshot()">Screenshot</button>
-        <button onclick="app.startVideoRecording()" id="recordBtn">Record</button>
-        <button onclick="app.stopVideoRecording()" id="stopRecordBtn" style="display:none">Stop Rec</button>
+        <button onclick="app.stopVideoRecording()" id="stopRecordBtn" class="stop-rec-header" style="display:none" title="Stop recording and save video">⏹ Stop Recording</button>
     </div>
 </header>
 
@@ -190,13 +189,14 @@ zoom: Germany"></textarea>
                     <span class="timeline-title">Progress</span>
                     <span class="timeline-position" id="timelinePosition">0 / 0</span>
                 </div>
-                <div class="timeline-bar">
+                <div class="timeline-bar" id="timelineBar" title="Click to seek to any step">
                     <div class="timeline-progress" id="timelineProgress"></div>
                 </div>
             </div>
 
             <div class="control-row">
-                <button class="ctrl-btn" id="runBtn" onclick="app.run()" title="Run animation">Run</button>
+                <button class="ctrl-btn" id="runBtn" onclick="app.run()" title="Run animation">▶ Run</button>
+                <button class="ctrl-btn ctrl-btn-rec" id="recordPlayBtn" onclick="app.recordAndPlay()" title="Restart and record the whole animation to a video file">⏺ Rec</button>
             </div>
 
             <div class="control-row dvd-controls" id="dvdControls" style="display: none;">
@@ -208,6 +208,17 @@ zoom: Germany"></textarea>
 
             <div class="control-row dvd-controls" id="dvdControls2" style="display: none;">
                 <button class="ctrl-btn small secondary" onclick="app.restart()" title="Restart from beginning">Restart</button>
+            </div>
+
+            <div class="control-row speed-row">
+                <span class="speed-label">Speed</span>
+                <select id="speedSelect" class="speed-select" title="Playback speed">
+                    <option value="0.25">0.25×</option>
+                    <option value="0.5">0.5×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="2">2×</option>
+                    <option value="4">4×</option>
+                </select>
             </div>
         </div>
     </aside>

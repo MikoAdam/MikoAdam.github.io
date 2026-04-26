@@ -71,7 +71,19 @@ const CONFIG = {
         'hadrut': ['hadrut'],
         'askeran': ['əsgəran', 'askeran'],
         // Other regions:
-        'lankaran': ['lənkəran', 'lankaran', 'lenkeran']
+        'lankaran': ['lənkəran', 'lankaran', 'lenkeran'],
+
+        // Ukrainian oblasts (Natural Earth uses Ukrainian transliterations)
+        'donetsk': ["donets'ka", 'donetska', 'donetsk', 'donetzka'],
+        'luhansk': ["luhans'ka", 'luhanska', 'luhansk', 'lugansk'],
+        'zaporizhzhia': ["zaporiz'ka", 'zaporizka', 'zaporizhzhia', 'zaporizhia', 'zaporiz ka'],
+        'zaporizhia': ["zaporiz'ka", 'zaporizka', 'zaporizhzhia', 'zaporizhia'],
+        'kherson': ["khersons'ka", 'khersonska', 'kherson'],
+        'kharkiv': ["kharkivs'ka", 'kharkivska', 'kharkiv'],
+        'crimea': ['krym', 'crimea', 'respublika krym', 'ar krym', 'avtonomna respublika krym', 'autonomous republic of crimea'],
+
+        // Bosnian entities
+        'republika srpska': ['republika srpska', 'republic of srpska']
     },
 
     // Satellite imagery settings

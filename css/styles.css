@@ -1479,10 +1479,20 @@ main {
 }
 
 .timeline-bar {
-    height: 6px;
+    height: 8px;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
+    border-radius: 4px;
     overflow: hidden;
+    cursor: pointer;
+    transition: height 0.15s ease;
+}
+
+.timeline-bar:hover {
+    height: 10px;
+}
+
+.timeline-bar:hover .timeline-progress {
+    box-shadow: 0 0 16px rgba(102, 126, 234, 0.8);
 }
 
 .timeline-progress {
@@ -1694,3 +1704,73 @@ main {
 }
 
 /* (Arrow tool styles removed - integrated into context menu) */
+
+/* ═══════════════════════════════════════════════════════════════
+   SPEED CONTROL
+   ═══════════════════════════════════════════════════════════════ */
+
+.speed-row {
+    align-items: center;
+    margin-top: 2px;
+}
+
+.speed-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.speed-select {
+    flex: 1;
+    padding: 6px 24px 6px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #3a3a50;
+    color: #aaa;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.speed-select:hover, .speed-select:focus {
+    border-color: #667eea;
+    color: #ddd;
+    outline: none;
+}
+
+/* Sidebar Rec button — sits next to Run, narrower, red tint */
+.ctrl-btn-rec {
+    flex: 0 0 auto;
+    width: 56px;
+    padding: 12px 0;
+    background: linear-gradient(135deg, #5a1010 0%, #7f1d1d 100%);
+    border: 1px solid #991b1b;
+    color: #fca5a5;
+    font-size: 13px;
+}
+
+.ctrl-btn-rec:hover {
+    background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%);
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.5);
+}
+
+.ctrl-btn-rec:disabled {
+    opacity: 0.5;
+    animation: pulse 1s infinite;
+}
+
+/* Header Stop Recording button — visible only while recording */
+.stop-rec-header {
+    background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%) !important;
+    border-color: #ef4444 !important;
+    color: #fff !important;
+    animation: pulse 1.2s infinite;
+    font-weight: 700;
+}

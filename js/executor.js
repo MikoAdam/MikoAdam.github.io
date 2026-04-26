@@ -6,6 +6,9 @@ class ScriptExecutor {
     constructor(renderer, geoData) {
         this.renderer = renderer;
         this.geoData = geoData;
+        this.speedMultiplier = 1;   // Playback speed (0.25 – 4×)
+        this._skipDelays = false;   // True during step-backward / seek replay
+        this._isAborted = null;     // () => bool — set by App to cancel ongoing waits
     }
 
     async execute(commands) {
@@ -120,14 +123,18 @@ class ScriptExecutor {
             }
 
             case 'fly': {
-                this.renderer.flyTo(cmd.lat, cmd.lng, cmd.zoom);
-                await this.delay(1300);
+                const speed = this.speedMultiplier || 1;
+                const flyDur = Math.round(1200 / speed);
+                this.renderer.flyTo(cmd.lat, cmd.lng, cmd.zoom, flyDur);
+                await this.delay(flyDur + 100);
                 break;
             }
 
             case 'cinematic': {
-                this.renderer.cinematicFlyTo(cmd.lat, cmd.lng, cmd.zoom, cmd.pitch, cmd.bearing);
-                await this.delay(2100);
+                const speed = this.speedMultiplier || 1;
+                const cinDur = Math.round(2000 / speed);
+                this.renderer.cinematicFlyTo(cmd.lat, cmd.lng, cmd.zoom, cmd.pitch, cmd.bearing, cinDur);
+                await this.delay(cinDur + 100);
                 break;
             }
 
@@ -185,6 +192,17 @@ class ScriptExecutor {
     }
 
     delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        const actual = ms / Math.max(0.1, this.speedMultiplier || 1);
+        if (this._skipDelays || actual <= 0) return Promise.resolve();
+        return new Promise(resolve => {
+            const end = Date.now() + actual;
+            const tick = () => {
+                if (this._isAborted && this._isAborted()) return resolve();
+                const remaining = end - Date.now();
+                if (remaining <= 0) return resolve();
+                setTimeout(tick, Math.min(50, remaining));
+            };
+            setTimeout(tick, Math.min(50, actual));
+        });
     }
 }
